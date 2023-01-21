@@ -10,7 +10,7 @@ client.once('ready', async () => {
 
 	const channel = await client.channels.fetch('1066370266780934144');
 
-	let msg = new CronJob('20 13 * * *', send);
+	let msg = new CronJob('25 13 * * *', send);
 
 	function send() {
 		console.log('Working');
@@ -27,7 +27,7 @@ client.once('ready', async () => {
 // let job1 = new CronJob('* * * * * ', test); // fires every day, at 01:05:01 and 13:05:01
 
 client.login(
-	'MTA2NjM0MjAwMjEyMTI0ODc3OA.GXQJbA.NZJuSAWby0TsmoXuY_xmyN9VaG6I5wHzcwj6Z8'
+	'MTA2NjM0MjAwMjEyMTI0ODc3OA.G2ypOY.FOuzCbQwopAE2263ae7Xfoms7PxUyW8sxKIIpU'
 );
 
 // job1.start();
