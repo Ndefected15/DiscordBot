@@ -8,9 +8,10 @@ const client = new Client({
 client.once('ready', async () => {
 	console.log('BeFrWithMe is online!');
 
-	const channel = await client.channels.fetch('1066370266780934144');
+	const channel = await client.channels.fetch('1066395020405518376');
 
-	let msg = CronJob('0 12 1/1 * *', () => {
+	let msg = CronJob('* * * * *', () => {
+		console.log('Working');
 		channel.send('@here be fr with me rn');
 
 		msg();
