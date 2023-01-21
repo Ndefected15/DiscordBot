@@ -26,8 +26,6 @@ client.once('ready', async () => {
 
 // let job1 = new CronJob('* * * * * ', test); // fires every day, at 01:05:01 and 13:05:01
 
-client.login(
-	'MTA2NjM0MjAwMjEyMTI0ODc3OA.G2ypOY.FOuzCbQwopAE2263ae7Xfoms7PxUyW8sxKIIpU'
-);
+client.login(process.env.DJS_TOKEN);
 
 // job1.start();
