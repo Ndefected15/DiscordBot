@@ -17,4 +17,6 @@ client.once('ready', async () => {
 	});
 });
 
-client.login('TOKEN');
+client.login(
+	'MTA2NjM0MjAwMjEyMTI0ODc3OA.GaSFP0.jiZWyDootfY9MZ-LuoMzb5eJMMRlBi70oERORw'
+);
