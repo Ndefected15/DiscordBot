@@ -11,10 +11,10 @@ client.once('ready', async () => {
 	const channel = await client.channels.fetch('1066395020405518376');
 
 	let msg = new CronJob(
-		'35 9 * * *',
+		'30 17 * * *',
 		function () {
 			console.log('Working');
-			channel.send('be fr with me rn');
+			channel.send('@here Be fr with me rn :Big_Iron:');
 		},
 		null,
 		true,
