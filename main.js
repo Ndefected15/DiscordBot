@@ -10,12 +10,21 @@ client.once('ready', async () => {
 
 	const channel = await client.channels.fetch('1066395020405518376');
 
-	let msg = new CronJob('2 14 * * *', send);
+	let msg = new CronJob(
+		'35 9 * * *',
+		function () {
+			console.log('Working');
+			channel.send('be fr with me rn');
+		},
+		null,
+		true,
+		'America/New_York'
+	);
 
-	function send() {
-		console.log('Working');
-		channel.send('be fr with me rn');
-	}
+	// function send() {
+	// 	console.log('Working');
+	// 	channel.send('be fr with me rn');
+	// }
 
 	msg.start();
 });
