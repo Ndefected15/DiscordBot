@@ -10,31 +10,22 @@ client.once('ready', async () => {
 
 	const channel = await client.channels.fetch('1066395020405518376');
 
+	function hour(min, max) {
+		return Math.floor(Math.random() * (max - min) + min);
+	}
+
 	let msg = new CronJob(
-		'30 17 * * *',
+		`* ${hour(20, 14)} * * *`,
 		function () {
-			console.log('Working');
-			channel.send('@here Be fr with me rn :Big_Iron:');
+			console.log(hour(20, 14));
+			channel.send('@here Be fr with me rn <:Big_Iron:795054994457624577>');
 		},
 		null,
 		true,
 		'America/New_York'
 	);
 
-	// function send() {
-	// 	console.log('Working');
-	// 	channel.send('be fr with me rn');
-	// }
-
 	msg.start();
 });
 
-// function test() {
-// 	console.log('Action executed.');
-// }
-
-// let job1 = new CronJob('* * * * * ', test); // fires every day, at 01:05:01 and 13:05:01
-
 client.login(process.env.DJS_TOKEN);
-
-// job1.start();
