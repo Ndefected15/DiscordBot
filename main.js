@@ -14,10 +14,15 @@ client.once('ready', async () => {
 		return Math.floor(Math.random() * (max - min) + min);
 	}
 
+	function minute(min, max) {
+		return Math.floor(Math.random() * (max - min) + min);
+	}
+
 	let msg = new CronJob(
-		`* ${hour(20, 14)} * * *`,
+		`${minute(59, 0)} ${hour(20, 14)} * * *`,
 		function () {
-			console.log(hour(20, 14));
+			// console.log(hour(20, 14));
+			// console.log(minute(59, 0));
 			channel.send('@here Be fr with me rn <:Big_Iron:795054994457624577>');
 		},
 		null,
