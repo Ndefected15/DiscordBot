@@ -76,7 +76,7 @@ client.once('ready', async () => {
 	msg.start();
 });
 
-const rest = new REST().setToken(DJS_TOKEN);
+const rest = new REST().setToken(process.env.DJS_TOKEN);
 const slashRegister = async () => {
 	try {
 		await rest.put(Routes.applicationGuildCommands(botID, serverID), {
