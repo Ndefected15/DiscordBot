@@ -1,7 +1,7 @@
 const { Client, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const CronJob = require('cron').CronJob;
 const botID = '1066342002121248778';
-const serverID = '1066350114219769918';
+const serverID = '581783173923602433';
 const client = new Client({
 	intents: [412317132864],
 });
