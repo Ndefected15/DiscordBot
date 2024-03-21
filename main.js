@@ -1,15 +1,12 @@
 const { Client, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const CronJob = require('cron').CronJob;
 const botID = '1066342002121248778';
-const serverID = '581783173923602433';
 const client = new Client({
 	intents: [412317132864],
 });
 
 client.once('ready', async () => {
 	console.log('BeFrWithMe is online!');
-
-	const channel = await client.channels.fetch('1066395020405518376');
 
 	function hour(min, max) {
 		return Math.floor(Math.random() * (max - min) + min);
@@ -37,7 +34,14 @@ client.once('ready', async () => {
 
 			const random = Math.floor(Math.random() * messageArray.length);
 
-			if (!channel) return console.error('Invalid channel ID.');
+			const guild = client.guilds.cache.get('581783173923602433'); // Your server ID
+			if (!guild) return console.error('Invalid guild ID.');
+
+			const channel = guild.channels.cache.find(
+				(channel) => channel.type === 'GUILD_TEXT'
+			); // Find a text channel
+			if (!channel)
+				return console.error('No text channels found in the guild.');
 
 			channel.send(`@here Be fr with me rn ${messageArray[random]}`);
 
@@ -74,15 +78,17 @@ client.once('ready', async () => {
 	);
 
 	msg.start();
+
+	await slashRegister();
 });
 
 const rest = new REST().setToken(process.env.DJS_TOKEN);
 const slashRegister = async () => {
 	try {
-		await rest.put(Routes.applicationGuildCommands(botID, serverID), {
+		await rest.put(Routes.applicationCommands(botID), {
 			body: [
 				new SlashCommandBuilder()
-					.setName('')
+					.setName('ping')
 					.setDescription('just a simple ping command')
 					.addStringOption((option) => {
 						return option
@@ -92,10 +98,10 @@ const slashRegister = async () => {
 					}),
 			],
 		});
-	} catch (error) {}
+	} catch (error) {
+		console.error(error);
+	}
 };
-
-slashRegister();
 
 client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isCommand()) return;
