@@ -3,7 +3,7 @@ const CronJob = require('cron').CronJob;
 
 const botID = '1066342002121248778';
 const serverID = '581783173923602433';
-const botToken = 'process.env.DJS_TOKEN';
+const botToken = process.env.DJS_TOKEN;
 
 const client = new Client({
 	intents: [412317132864],
