@@ -10,6 +10,9 @@ const client = new Client({
 
 const rest = new REST().setToken(process.env.DJS_TOKEN);
 
+// Map to store user messages and their timestamps
+const userMessagesMap = new Map();
+
 const slashRegister = async () => {
 	try {
 		await rest.put(Routes.applicationGuildCommands(botID, serverID), {
@@ -38,11 +41,12 @@ client.once('ready', async () => {
 	function minute(min, max) {
 		return Math.floor(Math.random() * (max - min) + min);
 	}
+
 	console.log(`${hour(20, 14)}:${minute(59, 0)}`);
 
 	const msg = new CronJob(
 		`${minute(59, 0)} ${hour(20, 14)} * * *`,
-		// '*/2 * * * *', // Runs every two minues
+		// '*/2 * * * *', // Runs every two minutes
 		async function () {
 			const messageArray = [
 				'<:Big_Iron:795054994457624577>',
@@ -62,11 +66,6 @@ client.once('ready', async () => {
 			if (!channel) return console.error('Invalid channel ID.');
 
 			channel.send(`@here Be fr with me rn ${messageArray[random]}`);
-
-			// Call theRealest function once msg job has completed
-			setTimeout(() => {
-				theRealest(channel);
-			}, 60 * 60 * 1000); // 5 minutes in milliseconds
 		},
 		null,
 		true,
@@ -77,41 +76,39 @@ client.once('ready', async () => {
 });
 
 // Define theRealest as a standalone function
-function theRealest(channel) {
-	const userIDs = [];
+async function theRealest(channel) {
+	const now = Date.now();
+	const oneHourAgo = now - 60 * 60 * 1000;
 
-	channel.messages
-		.fetch({ limit: 100 })
-		.then((messages) => {
-			const now = Date.now();
-			const oneHourAgo = now - 60 * 60 * 1000;
-
-			messages.forEach((message) => {
-				// Check if the message has attachments and was not sent by the bot
-				if (
-					message.attachments.size > 0 &&
-					message.createdTimestamp >= oneHourAgo &&
-					message.author.id !== '1066342002121248778' && // Exclude specified user ID
-					message.author.id !== client.user.id // Exclude messages sent by the bot
-				) {
-					userIDs.push(message.author.id);
-				}
+	// Fetch messages since one hour ago
+	const messages = await channel.messages.fetch({ limit: 100 });
+	messages.forEach((message) => {
+		// Check if the message has attachments and was not sent by the bot
+		if (
+			message.attachments.size > 0 &&
+			message.createdTimestamp >= oneHourAgo &&
+			message.author.id !== '1066342002121248778' && // Exclude specified user ID
+			message.author.id !== client.user.id // Exclude messages sent by the bot
+		) {
+			userMessagesMap.set(message.id, {
+				content: message.content,
+				timestamp: message.createdTimestamp,
 			});
+		}
+	});
 
-			if (userIDs.length === 0) return console.log('No user IDs found.');
+	if (userMessagesMap.size === 0) return console.log('No user messages found.');
 
-			const randomizer = userIDs[Math.floor(Math.random() * userIDs.length)];
+	const randomizer = Array.from(userMessagesMap.values())[
+		Math.floor(Math.random() * userMessagesMap.size)
+	];
+	const randomMessageTimestamp = new Date(
+		randomizer.timestamp
+	).toLocaleString();
 
-			console.log(userIDs);
-
-			channel.send(`<@${randomizer}> is the realest today `);
-
-			// Clear the userIDs array after theRealest function is run
-			userIDs.length = 0; // This empties the array
-		})
-		.catch((error) => {
-			console.error('Error fetching messages:', error);
-		});
+	channel.send(
+		`<@${randomizer.author.id}> is the realest today (sent at ${randomMessageTimestamp})`
+	);
 }
 
 client.on('interactionCreate', async (interaction) => {
@@ -124,39 +121,23 @@ client.on('interactionCreate', async (interaction) => {
 		await interaction.deferReply(); // Acknowledge the interaction
 
 		try {
-			const channel = interaction.channel;
-			let userMessages = new Map();
-			let lastMessageId = null;
-
-			// Fetch messages iteratively until all messages are retrieved
-			do {
-				const options = { limit: 100 };
-				if (lastMessageId) options.before = lastMessageId;
-
-				const messages = await channel.messages.fetch(options);
-				lastMessageId = messages.lastKey();
-				messages.forEach((msg) => {
-					if (msg.author.id === userId && msg.attachments.size > 0) {
-						userMessages.set(msg.id, msg);
-					}
-				});
-			} while (lastMessageId);
-
-			if (userMessages.size === 0) {
+			const userMessagesArray = Array.from(userMessagesMap.values());
+			if (userMessagesArray.length === 0) {
 				await interaction.editReply('No BeFr found for the specified user.');
 				return;
 			}
 
-			const randomIndex = Math.floor(Math.random() * userMessages.size);
-			const randomMessage = Array.from(userMessages.values())[randomIndex];
-			const attachment = randomMessage.attachments.first();
+			const randomizer =
+				userMessagesArray[Math.floor(Math.random() * userMessagesArray.length)];
+			const attachment = randomizer.attachments.first();
 			if (!attachment) {
 				await interaction.editReply('No BeFr found for the specified user.');
 				return;
 			}
 
+			const timestamp = new Date(randomizer.timestamp).toLocaleString();
 			await interaction.editReply({
-				content: `Here's a random BeFr from <@${userId}>:`,
+				content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
 				files: [attachment.url],
 			});
 		} catch (error) {
