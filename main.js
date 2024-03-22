@@ -121,41 +121,50 @@ client.on('interactionCreate', async (interaction) => {
 	console.log(`User ID: ${userId}`);
 
 	if (interaction.commandName === 'random_befr') {
-		const channel = interaction.channel;
-		let userMessages = new Map();
-		let lastMessageId = null;
+		await interaction.deferReply(); // Acknowledge the interaction
 
-		// Fetch messages iteratively until all messages are retrieved
-		do {
-			const options = { limit: 100 };
-			if (lastMessageId) options.before = lastMessageId;
+		try {
+			const channel = interaction.channel;
+			let userMessages = new Map();
+			let lastMessageId = null;
 
-			const messages = await channel.messages.fetch(options);
-			lastMessageId = messages.lastKey();
-			messages.forEach((msg) => {
-				if (msg.author.id === userId && msg.attachments.size > 0) {
-					userMessages.set(msg.id, msg);
-				}
+			// Fetch messages iteratively until all messages are retrieved
+			do {
+				const options = { limit: 100 };
+				if (lastMessageId) options.before = lastMessageId;
+
+				const messages = await channel.messages.fetch(options);
+				lastMessageId = messages.lastKey();
+				messages.forEach((msg) => {
+					if (msg.author.id === userId && msg.attachments.size > 0) {
+						userMessages.set(msg.id, msg);
+					}
+				});
+			} while (lastMessageId);
+
+			if (userMessages.size === 0) {
+				await interaction.editReply('No BeFr found for the specified user.');
+				return;
+			}
+
+			const randomIndex = Math.floor(Math.random() * userMessages.size);
+			const randomMessage = Array.from(userMessages.values())[randomIndex];
+			const attachment = randomMessage.attachments.first();
+			if (!attachment) {
+				await interaction.editReply('No BeFr found for the specified user.');
+				return;
+			}
+
+			await interaction.editReply({
+				content: `Here's a random BeFr from <@${userId}>:`,
+				files: [attachment.url],
 			});
-		} while (lastMessageId);
-
-		if (userMessages.size === 0) {
-			await interaction.reply('No BeFr found for the specified user.');
-			return;
+		} catch (error) {
+			console.error('Error executing random_befr command:', error);
+			await interaction.editReply(
+				'An error occurred while processing your request.'
+			);
 		}
-
-		const randomIndex = Math.floor(Math.random() * userMessages.size);
-		const randomMessage = Array.from(userMessages.values())[randomIndex];
-		const attachment = randomMessage.attachments.first();
-		if (!attachment) {
-			await interaction.reply('No BeFr found for the specified user.');
-			return;
-		}
-
-		await interaction.reply({
-			content: `Here's a random BeFr from <@${userId}>:`,
-			files: [attachment.url],
-		});
 	}
 });
 
