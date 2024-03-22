@@ -144,7 +144,8 @@ client.on('interactionCreate', async (interaction) => {
 			return;
 		}
 
-		const randomMessage = Array.from(userMessages.values()).random();
+		const randomIndex = Math.floor(Math.random() * userMessages.size);
+		const randomMessage = Array.from(userMessages.values())[randomIndex];
 		const attachment = randomMessage.attachments.first();
 		if (!attachment) {
 			await interaction.reply('No BeFr found for the specified user.');
