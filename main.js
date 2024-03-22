@@ -3,12 +3,13 @@ const CronJob = require('cron').CronJob;
 
 const botID = '1066342002121248778';
 const serverID = '581783173923602433';
+const botToken = 'process.env.DJS_TOKEN';
 
 const client = new Client({
 	intents: [412317132864],
 });
 
-const rest = new REST().setToken(process.env.DJS_TOKEN);
+const rest = new REST().setToken(botToken);
 
 // Map to store user messages and their timestamps
 const userMessagesMap = new Map();
@@ -34,25 +35,31 @@ client.once('ready', async () => {
 
 	const channel = await client.channels.fetch('1066395020405518376');
 
-	// Fetch all messages in the channel's history
-	const allMessages = await channel.messages.fetch({ limit: null });
+	let lastMessageId = null;
 
-	// Cache messages containing attachments
-	allMessages.forEach((message) => {
-		if (message.attachments.size > 0) {
-			userMessagesMap.set(message.id, {
-				attachment: message.attachments.first(),
-				timestamp: message.createdTimestamp,
-				authorID: message.author.id, // Store user ID instead of username
-			});
-		}
-	});
+	do {
+		const options = { limit: 100 };
+		if (lastMessageId) options.before = lastMessageId;
 
-	// Print 10 random cached messages to the console
-	console.log('Printing 10 random cached messages:');
+		const allMessages = await channel.messages.fetch(options);
+		lastMessageId = allMessages.lastKey();
+
+		allMessages.forEach((message) => {
+			if (message.attachments.size > 0) {
+				userMessagesMap.set(message.id, {
+					attachment: message.attachments.first(),
+					timestamp: message.createdTimestamp,
+					authorID: message.author.id, // Store user ID instead of username
+				});
+			}
+		});
+	} while (lastMessageId);
+
+	// Print 20 random cached messages to the console
+	console.log('Printing 20 random cached messages:');
 	const randomMessages = Array.from(userMessagesMap.values())
 		.sort(() => Math.random() - 0.5)
-		.slice(0, 10);
+		.slice(0, 20);
 	randomMessages.forEach((messageData, index) => {
 		console.log(`Message ${index + 1}:`);
 		console.log(`Author ID: ${messageData.authorID}`);
@@ -176,4 +183,4 @@ client.on('interactionCreate', async (interaction) => {
 	}
 });
 
-client.login(process.env.DJS_TOKEN);
+client.login(botToken);
