@@ -1,15 +1,35 @@
 const { Client, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const CronJob = require('cron').CronJob;
+
 const botID = '1066342002121248778';
 const serverID = '581783173923602433';
+
 const client = new Client({
 	intents: [412317132864],
 });
 
+const rest = new REST().setToken(process.env.DJS_TOKEN);
+
+const slashRegister = async () => {
+	try {
+		await rest.put(Routes.applicationGuildCommands(botID, serverID), {
+			body: [
+				new SlashCommandBuilder()
+					.setName('random_befr')
+					.setDescription('Retrieves a random BeFr you previously sent'),
+			],
+		});
+	} catch (error) {
+		console.error(error);
+	}
+};
+
+slashRegister();
+
 client.once('ready', async () => {
 	console.log('BeFrWithMe is online!');
 
-	const channel = await client.channels.fetch('1066395020405518376');
+	const channel = await client.channels.fetch('1066370266780934144');
 
 	function hour(min, max) {
 		return Math.floor(Math.random() * (max - min) + min);
@@ -18,9 +38,11 @@ client.once('ready', async () => {
 	function minute(min, max) {
 		return Math.floor(Math.random() * (max - min) + min);
 	}
+	console.log(`${hour(20, 14)}:${minute(59, 0)}`);
 
 	const msg = new CronJob(
 		`${minute(59, 0)} ${hour(20, 14)} * * *`,
+		// '*/2 * * * *', // Runs every two minues
 		async function () {
 			const messageArray = [
 				'<:Big_Iron:795054994457624577>',
@@ -41,32 +63,10 @@ client.once('ready', async () => {
 
 			channel.send(`@here Be fr with me rn ${messageArray[random]}`);
 
-			const theRealest = new CronJob('0 * * * * *', async function () {
-				const userIDs = [];
-
-				const messages = await channel.messages.fetch({ limit: 100 }); // Fetch last 100 messages
-				const now = Date.now();
-				const oneHourAgo = now - 60 * 60 * 1000;
-
-				messages.forEach((message) => {
-					if (
-						message.attachments.size > 0 &&
-						message.createdTimestamp >= oneHourAgo
-					) {
-						userIDs.push(message.author.id);
-					}
-				});
-
-				if (userIDs.length === 0) return console.log('No user IDs found.');
-
-				const randomizer = userIDs[Math.floor(Math.random() * userIDs.length)];
-
-				channel.send(`<@${randomizer}> is the realest today `);
-			});
-
+			// Call theRealest function once msg job has completed
 			setTimeout(() => {
-				theRealest.start();
-			}, 3600000); // Start theRealest job after one hour
+				theRealest(channel);
+			}, 60 * 60 * 1000); // 5 minutes in milliseconds
 		},
 		null,
 		true,
@@ -76,49 +76,70 @@ client.once('ready', async () => {
 	msg.start();
 });
 
-const rest = new REST().setToken(process.env.DJS_TOKEN);
-const slashRegister = async () => {
-	try {
-		await rest.put(Routes.applicationGuildCommands(botID, serverID), {
-			body: [
-				new SlashCommandBuilder()
-					.setName('ping')
-					.setDescription('just a simple ping command')
-					.addStringOption((option) => {
-						return option
-							.setName('message')
-							.setDescription('the message to send')
-							.setRequired(false);
-					}),
-				new SlashCommandBuilder()
-					.setName('uhhhhh')
-					.setDescription('uhhhh')
-					.addStringOption((option) => {
-						return option
-							.setName('message')
-							.setDescription('the message to send')
-							.setRequired(false);
-					}),
-			],
-		});
-	} catch (error) {}
-};
+// Define theRealest as a standalone function
+function theRealest(channel) {
+	const userIDs = [];
 
-slashRegister();
+	channel.messages
+		.fetch({ limit: 100 })
+		.then((messages) => {
+			const now = Date.now();
+			const oneHourAgo = now - 60 * 60 * 1000;
+
+			messages.forEach((message) => {
+				// Check if the message has attachments and was not sent by the bot
+				if (
+					message.attachments.size > 0 &&
+					message.createdTimestamp >= oneHourAgo &&
+					message.author.id !== '1066342002121248778' && // Exclude specified user ID
+					message.author.id !== client.user.id // Exclude messages sent by the bot
+				) {
+					userIDs.push(message.author.id);
+				}
+			});
+
+			if (userIDs.length === 0) return console.log('No user IDs found.');
+
+			const randomizer = userIDs[Math.floor(Math.random() * userIDs.length)];
+
+			console.log(userIDs);
+
+			channel.send(`<@${randomizer}> is the realest today `);
+
+			// Clear the userIDs array after theRealest function is run
+			userIDs.length = 0; // This empties the array
+		})
+		.catch((error) => {
+			console.error('Error fetching messages:', error);
+		});
+}
 
 client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isCommand()) return;
 
-	const userId = interaction.user.id;
+	const userId = interaction.member.user.id; // Get user ID from interaction
 	console.log(`User ID: ${userId}`);
 
-	if (interaction.commandName === 'ping') {
-		const msg = interaction.options.getString('message');
-		await interaction.reply(`You sent me: ${msg}`);
-	}
-	if (interaction.commandName === 'uhhhhh') {
-		const msg = interaction.options.getString('message');
-		await interaction.reply(`You sent me: ${msg}`);
+	if (interaction.commandName === 'random_befr') {
+		const channel = interaction.channel;
+		const messages = await channel.messages.fetch({ limit: 100 }); // Adjust limit as needed
+		const userMessages = messages.filter(
+			(msg) => msg.author.id === userId && msg.attachments.size > 0
+		);
+		if (userMessages.size === 0) {
+			await interaction.reply('No BeFr found for the specified user.');
+			return;
+		}
+		const randomMessage = userMessages.random();
+		const attachment = randomMessage.attachments.first();
+		if (!attachment) {
+			await interaction.reply('No BeFr found for the specified user.');
+			return;
+		}
+		await interaction.reply({
+			content: `Here's a random BeFr from <@${userId}>:`,
+			files: [attachment.url],
+		});
 	}
 });
 
