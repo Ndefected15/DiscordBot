@@ -81,7 +81,7 @@ async function theRealest(channel) {
 	const oneHourAgo = now - 60 * 60 * 1000;
 
 	// Fetch messages since one hour ago
-	const messages = await channel.messages.fetch({ limit: 100 });
+	const messages = await channel.messages.fetch({ limit: null }); // Fetch all messages
 	messages.forEach((message) => {
 		// Check if the message has attachments and was not sent by the bot
 		if (
