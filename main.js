@@ -29,7 +29,7 @@ slashRegister();
 client.once('ready', async () => {
 	console.log('BeFrWithMe is online!');
 
-	const channel = await client.channels.fetch('1066370266780934144');
+	const channel = await client.channels.fetch('1066395020405518376');
 
 	function hour(min, max) {
 		return Math.floor(Math.random() * (max - min) + min);
