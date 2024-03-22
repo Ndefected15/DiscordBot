@@ -122,20 +122,35 @@ client.on('interactionCreate', async (interaction) => {
 
 	if (interaction.commandName === 'random_befr') {
 		const channel = interaction.channel;
-		const messages = await channel.messages.fetch({ limit: 100 }); // Adjust limit as needed
-		const userMessages = messages.filter(
-			(msg) => msg.author.id === userId && msg.attachments.size > 0
-		);
+		let userMessages = new Map();
+		let lastMessageId = null;
+
+		// Fetch messages iteratively until all messages are retrieved
+		do {
+			const options = { limit: 100 };
+			if (lastMessageId) options.before = lastMessageId;
+
+			const messages = await channel.messages.fetch(options);
+			lastMessageId = messages.lastKey();
+			messages.forEach((msg) => {
+				if (msg.author.id === userId && msg.attachments.size > 0) {
+					userMessages.set(msg.id, msg);
+				}
+			});
+		} while (lastMessageId);
+
 		if (userMessages.size === 0) {
 			await interaction.reply('No BeFr found for the specified user.');
 			return;
 		}
-		const randomMessage = userMessages.random();
+
+		const randomMessage = Array.from(userMessages.values()).random();
 		const attachment = randomMessage.attachments.first();
 		if (!attachment) {
 			await interaction.reply('No BeFr found for the specified user.');
 			return;
 		}
+
 		await interaction.reply({
 			content: `Here's a random BeFr from <@${userId}>:`,
 			files: [attachment.url],
