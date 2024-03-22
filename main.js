@@ -48,6 +48,21 @@ client.once('ready', async () => {
 		}
 	});
 
+	// Print 10 cached messages to the console
+	console.log('Printing 10 cached messages:');
+	let count = 0;
+	for (const [messageId, messageData] of userMessagesMap) {
+		if (count >= 10) break;
+		console.log(`Message ID: ${messageId}`);
+		console.log(`Author: ${messageData.author.username}`);
+		console.log(
+			`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`
+		);
+		console.log(`Attachment: ${messageData.attachment.url}`);
+		console.log('--------------------------');
+		count++;
+	}
+
 	function hour(min, max) {
 		return Math.floor(Math.random() * (max - min) + min);
 	}
