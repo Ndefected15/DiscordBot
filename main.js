@@ -87,12 +87,13 @@ async function theRealest(channel) {
 		if (
 			message.attachments.size > 0 &&
 			message.createdTimestamp >= oneHourAgo &&
-			message.author.id !== '1066342002121248778' && // Exclude specified user ID
+			message.author.id !== botID && // Exclude bot's messages
 			message.author.id !== client.user.id // Exclude messages sent by the bot
 		) {
 			userMessagesMap.set(message.id, {
 				attachment: message.attachments.first(),
 				timestamp: message.createdTimestamp,
+				author: message.author,
 			});
 		}
 	});
@@ -124,7 +125,7 @@ client.on('messageCreate', (message) => {
 client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isCommand()) return;
 
-	const userId = interaction.member.user.id;
+	const userId = interaction.user.id; // Correctly retrieve user ID
 
 	if (interaction.commandName === 'random_befr') {
 		await interaction.deferReply();
@@ -134,7 +135,7 @@ client.on('interactionCreate', async (interaction) => {
 		);
 
 		if (userMessagesArray.length === 0) {
-			await interaction.editReply('No BeFr found for the specified user.');
+			await interaction.editReply('No BeFr found for you.'); // Change message
 			return;
 		}
 
@@ -143,13 +144,13 @@ client.on('interactionCreate', async (interaction) => {
 		const attachment = randomizer.attachment;
 
 		if (!attachment) {
-			await interaction.editReply('No BeFr found for the specified user.');
+			await interaction.editReply('No BeFr found for you.'); // Change message
 			return;
 		}
 
 		const timestamp = new Date(randomizer.timestamp).toLocaleString();
 		await interaction.editReply({
-			content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
+			content: `Here's a random BeFr for you (sent at ${timestamp}):`,
 			files: [attachment.url],
 		});
 	}
