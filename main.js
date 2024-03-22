@@ -111,41 +111,47 @@ async function theRealest(channel) {
 	);
 }
 
+client.on('messageCreate', (message) => {
+	if (message.attachments.size > 0) {
+		userMessagesMap.set(message.id, {
+			attachment: message.attachments.first(),
+			timestamp: message.createdTimestamp,
+			author: message.author,
+		});
+	}
+});
+
 client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isCommand()) return;
 
-	const userId = interaction.member.user.id; // Get user ID from interaction
-	console.log(`User ID: ${userId}`);
+	const userId = interaction.member.user.id;
 
 	if (interaction.commandName === 'random_befr') {
-		await interaction.deferReply(); // Acknowledge the interaction
+		await interaction.deferReply();
 
-		try {
-			const userMessagesArray = Array.from(userMessagesMap.values());
-			if (userMessagesArray.length === 0) {
-				await interaction.editReply('No BeFr found for the specified user.');
-				return;
-			}
+		const userMessagesArray = Array.from(userMessagesMap.values()).filter(
+			(msg) => msg.author.id === userId
+		);
 
-			const randomizer =
-				userMessagesArray[Math.floor(Math.random() * userMessagesArray.length)];
-			const attachment = randomizer.attachment;
-			if (!attachment) {
-				await interaction.editReply('No BeFr found for the specified user.');
-				return;
-			}
-
-			const timestamp = new Date(randomizer.timestamp).toLocaleString();
-			await interaction.editReply({
-				content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
-				files: [attachment.url],
-			});
-		} catch (error) {
-			console.error('Error executing random_befr command:', error);
-			await interaction.editReply(
-				'An error occurred while processing your request.'
-			);
+		if (userMessagesArray.length === 0) {
+			await interaction.editReply('No BeFr found for the specified user.');
+			return;
 		}
+
+		const randomizer =
+			userMessagesArray[Math.floor(Math.random() * userMessagesArray.length)];
+		const attachment = randomizer.attachment;
+
+		if (!attachment) {
+			await interaction.editReply('No BeFr found for the specified user.');
+			return;
+		}
+
+		const timestamp = new Date(randomizer.timestamp).toLocaleString();
+		await interaction.editReply({
+			content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
+			files: [attachment.url],
+		});
 	}
 });
 
