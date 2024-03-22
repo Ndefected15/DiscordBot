@@ -34,6 +34,20 @@ client.once('ready', async () => {
 
 	const channel = await client.channels.fetch('1066395020405518376');
 
+	// Fetch all messages in the channel's history
+	const allMessages = await channel.messages.fetch({ limit: null });
+
+	// Cache messages containing attachments
+	allMessages.forEach((message) => {
+		if (message.attachments.size > 0) {
+			userMessagesMap.set(message.id, {
+				attachment: message.attachments.first(),
+				timestamp: message.createdTimestamp,
+				author: message.author,
+			});
+		}
+	});
+
 	function hour(min, max) {
 		return Math.floor(Math.random() * (max - min) + min);
 	}
