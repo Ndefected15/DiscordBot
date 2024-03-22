@@ -43,7 +43,7 @@ client.once('ready', async () => {
 			userMessagesMap.set(message.id, {
 				attachment: message.attachments.first(),
 				timestamp: message.createdTimestamp,
-				author: message.author,
+				authorID: message.author.id, // Cache user ID instead of username
 			});
 		}
 	});
@@ -54,7 +54,7 @@ client.once('ready', async () => {
 	for (const [messageId, messageData] of userMessagesMap) {
 		if (count >= 10) break;
 		console.log(`Message ID: ${messageId}`);
-		console.log(`Author: ${messageData.author.username}`);
+		console.log(`Author ID: ${messageData.authorID}`); // Print user ID instead of username
 		console.log(
 			`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`
 		);
@@ -122,7 +122,7 @@ async function theRealest(channel) {
 			userMessagesMap.set(message.id, {
 				attachment: message.attachments.first(),
 				timestamp: message.createdTimestamp,
-				author: message.author,
+				authorID: message.author.id, // Cache user ID instead of username
 			});
 		}
 	});
@@ -137,7 +137,7 @@ async function theRealest(channel) {
 	).toLocaleString();
 
 	channel.send(
-		`<@${randomizer.author.id}> is the realest today (sent at ${randomMessageTimestamp})`
+		`<@${randomizer.authorID}> is the realest today (sent at ${randomMessageTimestamp})`
 	);
 }
 
@@ -147,7 +147,7 @@ client.on('messageCreate', async (message) => {
 		userMessagesMap.set(message.id, {
 			attachment: message.attachments.first(),
 			timestamp: message.createdTimestamp,
-			author: message.author,
+			authorID: message.author.id, // Cache user ID instead of username
 		});
 	}
 });
@@ -161,7 +161,7 @@ client.on('interactionCreate', async (interaction) => {
 		await interaction.deferReply();
 
 		const userMessagesArray = Array.from(userMessagesMap.values()).filter(
-			(msg) => msg.author.id === userId
+			(msg) => msg.authorID === userId // Check user ID instead of username
 		);
 
 		if (userMessagesArray.length === 0) {
