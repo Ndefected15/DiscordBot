@@ -70,9 +70,19 @@ client.once('ready', async () => {
 		console.log('--------------------------');
 	});
 
+	function hour(min, max) {
+		return Math.floor(Math.random() * (max - min) + min);
+	}
+
+	function minute(min, max) {
+		return Math.floor(Math.random() * (max - min) + min);
+	}
+	console.log(`${hour(20, 14)}:${minute(59, 0)}`);
+
 	// Schedule cron job to send a random message
 	const msg = new CronJob(
-		'*/2 * * * *', // Runs every two minutes
+		`${minute(59, 0)} ${hour(20, 14)} * * *`,
+		// '*/2 * * * *', // Runs every two minutes
 		async function () {
 			const messageArray = [
 				'<:Big_Iron:795054994457624577>',
