@@ -80,14 +80,14 @@ async function theRealest(channel) {
 	const now = Date.now();
 	const oneHourAgo = now - 60 * 60 * 1000;
 
-	// Fetch messages since one hour ago
-	const messages = await channel.messages.fetch({ limit: null }); // Fetch all messages
+	// Fetch all messages since one hour ago
+	const messages = await channel.messages.fetch();
 	messages.forEach((message) => {
 		// Check if the message has attachments and was not sent by the bot
 		if (
 			message.attachments.size > 0 &&
 			message.createdTimestamp >= oneHourAgo &&
-			message.author.id !== botID && // Exclude bot's messages
+			message.author.id !== '1066342002121248778' && // Exclude specified user ID
 			message.author.id !== client.user.id // Exclude messages sent by the bot
 		) {
 			userMessagesMap.set(message.id, {
@@ -112,8 +112,9 @@ async function theRealest(channel) {
 	);
 }
 
-client.on('messageCreate', (message) => {
-	if (message.attachments.size > 0) {
+client.on('messageCreate', async (message) => {
+	if (message.attachments.size > 0 && message.author.id !== client.user.id) {
+		// Only cache messages with attachments that are not sent by the bot
 		userMessagesMap.set(message.id, {
 			attachment: message.attachments.first(),
 			timestamp: message.createdTimestamp,
@@ -125,7 +126,7 @@ client.on('messageCreate', (message) => {
 client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isCommand()) return;
 
-	const userId = interaction.user.id; // Correctly retrieve user ID
+	const userId = interaction.member.user.id;
 
 	if (interaction.commandName === 'random_befr') {
 		await interaction.deferReply();
@@ -135,7 +136,7 @@ client.on('interactionCreate', async (interaction) => {
 		);
 
 		if (userMessagesArray.length === 0) {
-			await interaction.editReply('No BeFr found for you.'); // Change message
+			await interaction.editReply('No BeFr found for the specified user.');
 			return;
 		}
 
@@ -144,13 +145,13 @@ client.on('interactionCreate', async (interaction) => {
 		const attachment = randomizer.attachment;
 
 		if (!attachment) {
-			await interaction.editReply('No BeFr found for you.'); // Change message
+			await interaction.editReply('No BeFr found for the specified user.');
 			return;
 		}
 
 		const timestamp = new Date(randomizer.timestamp).toLocaleString();
 		await interaction.editReply({
-			content: `Here's a random BeFr for you (sent at ${timestamp}):`,
+			content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
 			files: [attachment.url],
 		});
 	}
