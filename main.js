@@ -43,39 +43,29 @@ client.once('ready', async () => {
 			userMessagesMap.set(message.id, {
 				attachment: message.attachments.first(),
 				timestamp: message.createdTimestamp,
-				authorID: message.author.id, // Cache user ID instead of username
+				authorID: message.author.id, // Store user ID instead of username
 			});
 		}
 	});
 
-	// Print 10 cached messages to the console
-	console.log('Printing 10 cached messages:');
-	let count = 0;
-	for (const [messageId, messageData] of userMessagesMap) {
-		if (count >= 10) break;
-		console.log(`Message ID: ${messageId}`);
-		console.log(`Author ID: ${messageData.authorID}`); // Print user ID instead of username
+	// Print 10 random cached messages to the console
+	console.log('Printing 10 random cached messages:');
+	const randomMessages = Array.from(userMessagesMap.values())
+		.sort(() => Math.random() - 0.5)
+		.slice(0, 10);
+	randomMessages.forEach((messageData, index) => {
+		console.log(`Message ${index + 1}:`);
+		console.log(`Author ID: ${messageData.authorID}`);
 		console.log(
 			`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`
 		);
 		console.log(`Attachment: ${messageData.attachment.url}`);
 		console.log('--------------------------');
-		count++;
-	}
+	});
 
-	function hour(min, max) {
-		return Math.floor(Math.random() * (max - min) + min);
-	}
-
-	function minute(min, max) {
-		return Math.floor(Math.random() * (max - min) + min);
-	}
-
-	console.log(`${hour(20, 14)}:${minute(59, 0)}`);
-
+	// Schedule cron job to send a random message
 	const msg = new CronJob(
-		`${minute(59, 0)} ${hour(20, 14)} * * *`,
-		// '*/2 * * * *', // Runs every two minutes
+		'*/2 * * * *', // Runs every two minutes
 		async function () {
 			const messageArray = [
 				'<:Big_Iron:795054994457624577>',
@@ -122,7 +112,7 @@ async function theRealest(channel) {
 			userMessagesMap.set(message.id, {
 				attachment: message.attachments.first(),
 				timestamp: message.createdTimestamp,
-				authorID: message.author.id, // Cache user ID instead of username
+				authorID: message.author.id, // Store user ID instead of username
 			});
 		}
 	});
@@ -147,7 +137,7 @@ client.on('messageCreate', async (message) => {
 		userMessagesMap.set(message.id, {
 			attachment: message.attachments.first(),
 			timestamp: message.createdTimestamp,
-			authorID: message.author.id, // Cache user ID instead of username
+			authorID: message.author.id, // Store user ID instead of username
 		});
 	}
 });
@@ -155,7 +145,7 @@ client.on('messageCreate', async (message) => {
 client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isCommand()) return;
 
-	const userId = interaction.member.user.id;
+	const userId = interaction.user.id; // Use interaction.user.id to get the user ID
 
 	if (interaction.commandName === 'random_befr') {
 		await interaction.deferReply();
