@@ -1,52 +1,98 @@
 const { Client, REST, Routes, SlashCommandBuilder } = require('discord.js');
 const CronJob = require('cron').CronJob;
 
-const botID = '1066342002121248778';
-const serverID = '581783173923602433';
-
-const client = new Client({
+// Discord bot configuration
+const botConfig = {
+	botID: '1066342002121248778',
+	serverID: '581783173923602433',
+	botToken: process.env.DJS_TOKEN,
 	intents: [412317132864],
-});
+};
 
-const rest = new REST().setToken(process.env.DJS_TOKEN);
+// Create Discord client and REST API instance
+const client = new Client({ intents: botConfig.intents });
+const rest = new REST().setToken(botConfig.botToken);
 
 // Map to store user messages and their timestamps
 const userMessagesMap = new Map();
 
+// Register Slash Commands
 const slashRegister = async () => {
 	try {
-		await rest.put(Routes.applicationGuildCommands(botID, serverID), {
-			body: [
-				new SlashCommandBuilder()
-					.setName('random_befr')
-					.setDescription('Retrieves a random BeFr you previously sent'),
-			],
-		});
+		await rest.put(
+			Routes.applicationGuildCommands(botConfig.botID, botConfig.serverID),
+			{
+				body: [
+					new SlashCommandBuilder()
+						.setName('random_befr')
+						.setDescription('Retrieves a random BeFr you previously sent'),
+				],
+			}
+		);
 	} catch (error) {
-		console.error(error);
+		console.error('Error while registering slash commands:', error);
 	}
 };
-
 slashRegister();
 
+// Once the bot is ready
 client.once('ready', async () => {
 	console.log('BeFrWithMe is online!');
 
+	// Fetch channel for operations
 	const channel = await client.channels.fetch('1066395020405518376');
 
-	function hour(min, max) {
+	// Fetch and cache previous user messages with attachments
+	let lastMessageId = null;
+	do {
+		const options = { limit: 100 };
+		if (lastMessageId) options.before = lastMessageId;
+
+		const allMessages = await channel.messages.fetch(options);
+		lastMessageId = allMessages.lastKey();
+
+		allMessages.forEach((message) => {
+			if (message.attachments.size > 0) {
+				userMessagesMap.set(message.id, {
+					attachment: message.attachments.first(),
+					timestamp: message.createdTimestamp,
+					authorID: message.author.id,
+				});
+			}
+		});
+	} while (lastMessageId);
+
+	// Print 20 random cached messages to the console
+	console.log('Printing 20 random cached messages:');
+	const randomMessages = Array.from(userMessagesMap.values())
+		.sort(() => Math.random() - 0.5)
+		.slice(0, 20);
+	randomMessages.forEach((messageData, index) => {
+		console.log(`Message ${index + 1}:`);
+		console.log(`Author ID: ${messageData.authorID}`);
+		console.log(
+			`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`
+		);
+		console.log(`Attachment: ${messageData.attachment.url}`);
+		console.log('--------------------------');
+	});
+
+	// Utility functions for generating random hours and minutes
+	function getRandomHour(min, max) {
+		return Math.floor(Math.random() * (max - min) + min);
+	}
+	function getRandomMinute(min, max) {
 		return Math.floor(Math.random() * (max - min) + min);
 	}
 
-	function minute(min, max) {
-		return Math.floor(Math.random() * (max - min) + min);
-	}
+	// Define cron job interval for sending random messages
+	const interval = `${getRandomMinute(59, 0)} ${getRandomHour(20, 14)} * * *`;
+	console.log('Cron job interval:', interval);
 
-	console.log(`${hour(20, 14)}:${minute(59, 0)}`);
-
+	// Schedule cron job to send a random message
 	const msg = new CronJob(
-		`${minute(59, 0)} ${hour(20, 14)} * * *`,
-		// '*/2 * * * *', // Runs every two minutes
+		interval,
+		// '*/2 * * * *',
 		async function () {
 			const messageArray = [
 				'<:Big_Iron:795054994457624577>',
@@ -61,92 +107,127 @@ client.once('ready', async () => {
 				'<:gritty:902949839111868458> ',
 			];
 
-			const random = Math.floor(Math.random() * messageArray.length);
+			const randomIndex = Math.floor(Math.random() * messageArray.length);
+			const randomMessage = messageArray[randomIndex];
 
 			if (!channel) return console.error('Invalid channel ID.');
 
-			channel.send(`@here Be fr with me rn ${messageArray[random]}`);
+			channel.send(`@here Be fr with me rn ${randomMessage}`);
+
+			// Call theRealest function once msg job has completed
+			setTimeout(() => {
+				theRealest(channel);
+			}, 60 * 60 * 1000); // 5 minutes in milliseconds
 		},
 		null,
 		true,
 		'America/New_York'
 	);
-
 	msg.start();
 });
 
-// Define theRealest as a standalone function
+// Function to determine the "realest" user
 async function theRealest(channel) {
 	const now = Date.now();
 	const oneHourAgo = now - 60 * 60 * 1000;
 
-	// Fetch messages since one hour ago
-	const messages = await channel.messages.fetch({ limit: 100 });
+	// Fetch all messages since one hour ago
+	const messages = await channel.messages.fetch();
 	messages.forEach((message) => {
-		// Check if the message has attachments and was not sent by the bot
 		if (
 			message.attachments.size > 0 &&
 			message.createdTimestamp >= oneHourAgo &&
-			message.author.id !== '1066342002121248778' && // Exclude specified user ID
-			message.author.id !== client.user.id // Exclude messages sent by the bot
+			message.author.id !== botConfig.botID &&
+			message.author.id !== client.user.id &&
+			message.author.id !== botConfig.botID
 		) {
 			userMessagesMap.set(message.id, {
-				content: message.content,
+				attachment: message.attachments.first(),
 				timestamp: message.createdTimestamp,
+				authorID: message.author.id,
 			});
 		}
 	});
 
+	// Handle no messages found
 	if (userMessagesMap.size === 0) return console.log('No user messages found.');
 
-	const randomizer = Array.from(userMessagesMap.values())[
-		Math.floor(Math.random() * userMessagesMap.size)
-	];
-	const randomMessageTimestamp = new Date(
-		randomizer.timestamp
-	).toLocaleString();
-
-	channel.send(
-		`<@${randomizer.author.id}> is the realest today (sent at ${randomMessageTimestamp})`
+	// Filter messages to exclude bot's own messages
+	const filteredMessages = Array.from(userMessagesMap.values()).filter(
+		(msg) => msg.authorID !== botConfig.botID
 	);
+
+	// Handle no user messages found after bot exclusion
+	if (filteredMessages.length === 0)
+		return console.log('No user messages found after bot exclusion.');
+
+	// Randomly select a "realest" user
+	const randomizer =
+		filteredMessages[Math.floor(Math.random() * filteredMessages.length)];
+
+	// Send message indicating the "realest" user
+	channel.send(`<@${randomizer.authorID}> is the realest today`);
 }
 
-client.on('interactionCreate', async (interaction) => {
-	if (!interaction.isCommand()) return;
-
-	const userId = interaction.member.user.id; // Get user ID from interaction
-	console.log(`User ID: ${userId}`);
-
-	if (interaction.commandName === 'random_befr') {
-		await interaction.deferReply(); // Acknowledge the interaction
-
-		try {
-			const userMessagesArray = Array.from(userMessagesMap.values());
-			if (userMessagesArray.length === 0) {
-				await interaction.editReply('No BeFr found for the specified user.');
-				return;
-			}
-
-			const randomizer =
-				userMessagesArray[Math.floor(Math.random() * userMessagesArray.length)];
-			const attachment = randomizer.attachments.first();
-			if (!attachment) {
-				await interaction.editReply('No BeFr found for the specified user.');
-				return;
-			}
-
-			const timestamp = new Date(randomizer.timestamp).toLocaleString();
-			await interaction.editReply({
-				content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
-				files: [attachment.url],
-			});
-		} catch (error) {
-			console.error('Error executing random_befr command:', error);
-			await interaction.editReply(
-				'An error occurred while processing your request.'
-			);
-		}
+// Event listener for caching messages with attachments
+client.on('messageCreate', async (message) => {
+	if (message.attachments.size > 0 && message.author.id !== client.user.id) {
+		userMessagesMap.set(message.id, {
+			attachment: message.attachments.first(),
+			timestamp: message.createdTimestamp,
+			authorID: message.author.id,
+		});
 	}
 });
 
-client.login(process.env.DJS_TOKEN);
+// Event listener for handling slash command interactions
+client.on('interactionCreate', async (interaction) => {
+	if (!interaction.isCommand()) return;
+
+	const userId = interaction.user.id;
+
+	// Process 'random_befr' command
+	if (interaction.commandName === 'random_befr') {
+		await interaction.deferReply();
+
+		const userMessagesArray = Array.from(userMessagesMap.values()).filter(
+			(msg) => msg.authorID === userId
+		);
+
+		// No BeFr found for the specified user
+		if (userMessagesArray.length === 0) {
+			await interaction.editReply('No BeFr found for the specified user.');
+			return;
+		}
+
+		// Randomly select a BeFr message
+		const randomizer =
+			userMessagesArray[Math.floor(Math.random() * userMessagesArray.length)];
+		const attachment = randomizer.attachment;
+
+		// Handle case when attachment is not found
+		if (!attachment) {
+			await interaction.editReply('No BeFr found for the specified user.');
+			return;
+		}
+
+		// Format and send the BeFr message with correct timezone
+		const timestampOptions = {
+			timeZone: 'America/New_York',
+			timeZoneName: 'short',
+			hour12: true, // Use 24-hour format
+		};
+		const timestamp = new Date(randomizer.timestamp).toLocaleString(
+			'en-US',
+			timestampOptions
+		);
+
+		await interaction.editReply({
+			content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
+			files: [attachment.url],
+		});
+	}
+});
+
+// Log in to Discord with the bot token
+client.login(botConfig.botToken);
