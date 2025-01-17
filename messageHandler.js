@@ -2,7 +2,7 @@ const { client } = require('./discordClient');
 const { userMessagesMap } = require('./utils');
 
 client.once('ready', async () => {
-	const channel = await client.channels.fetch('1066370266780934144');
+	const channel = await client.channels.fetch('1066395020405518376');
 
 	// Helper function to introduce delay
 	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -40,7 +40,7 @@ client.once('ready', async () => {
 	console.log(`Total messages processed: ${totalMessages}`);
 
 	// Print 20 random cached messages
-	console.log('Printing 20 random cached messages:');
+	/* console.log('Printing 20 random cached messages:');
 	const randomMessages = Array.from(userMessagesMap.values())
 		.sort(() => Math.random() - 0.5)
 		.slice(0, 20);
@@ -51,7 +51,7 @@ client.once('ready', async () => {
 		console.log(`Attachment: ${messageData.attachment.url}`);
 		console.log('--------------------------');
 	});
-});
+}); */ 
 
 client.on('messageCreate', async (message) => {
 	if (message.attachments.size > 0 && message.author.id !== client.user.id) {

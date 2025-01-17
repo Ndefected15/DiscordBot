@@ -3,7 +3,7 @@ const { CronJob } = require('cron');
 const { client } = require('./discordClient');
 const { getRandomHour, getRandomMinute, theRealest } = require('./utils');
 
-const channelID = '1066370266780934144';
+const channelID = '1066395020405518376';
 
 const interval = `${getRandomMinute(59, 0)} ${getRandomHour(20, 14)} * * *`;
 console.log(interval);
