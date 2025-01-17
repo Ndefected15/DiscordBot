@@ -28,6 +28,7 @@ client.once('ready', async () => {
 			}
 		});
 
+		// Update and print total message count
 		totalMessages += allMessages.size;
 		console.log(`Fetched ${allMessages.size} messages, total so far: ${totalMessages}`);
 
@@ -35,6 +36,10 @@ client.once('ready', async () => {
 		await sleep(1000); // 1-second delay
 	} while (lastMessageId);
 
+	console.log('Finished fetching messages!');
+	console.log(`Total messages processed: ${totalMessages}`);
+
+	// Print 20 random cached messages
 	console.log('Printing 20 random cached messages:');
 	const randomMessages = Array.from(userMessagesMap.values())
 		.sort(() => Math.random() - 0.5)
@@ -42,9 +47,7 @@ client.once('ready', async () => {
 	randomMessages.forEach((messageData, index) => {
 		console.log(`Message ${index + 1}:`);
 		console.log(`Author ID: ${messageData.authorID}`);
-		console.log(
-			`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`
-		);
+		console.log(`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`);
 		console.log(`Attachment: ${messageData.attachment.url}`);
 		console.log('--------------------------');
 	});
@@ -96,7 +99,7 @@ client.on('interactionCreate', async (interaction) => {
 			timestampOptions
 		);
 
-		// Debugging logs for attachments
+		// Troubleshooting logs
 		console.log('Attachment URL before editReply:', attachment.url);
 		console.log('Message Data in Map:', userMessagesMap.get(randomizer.id));
 		console.log('Retrieved attachment URL:', randomizer.attachment.url);
