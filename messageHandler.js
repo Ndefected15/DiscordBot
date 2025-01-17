@@ -50,8 +50,8 @@ client.once('ready', async () => {
 		console.log(`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`);
 		console.log(`Attachment: ${messageData.attachment.url}`);
 		console.log('--------------------------');
-	});
-}); */ 
+	}); */
+}); 
 
 client.on('messageCreate', async (message) => {
 	if (message.attachments.size > 0 && message.author.id !== client.user.id) {
