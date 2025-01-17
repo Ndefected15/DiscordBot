@@ -4,7 +4,12 @@ const { userMessagesMap } = require('./utils');
 client.once('ready', async () => {
 	const channel = await client.channels.fetch('1066370266780934144');
 
+	// Helper function to introduce delay
+	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 	let lastMessageId = null;
+	let totalMessages = 0;
+
 	do {
 		const options = { limit: 100 };
 		if (lastMessageId) options.before = lastMessageId;
@@ -12,6 +17,7 @@ client.once('ready', async () => {
 		const allMessages = await channel.messages.fetch(options);
 		lastMessageId = allMessages.lastKey();
 
+		// Process each message in the batch
 		allMessages.forEach((message) => {
 			if (message.attachments.size > 0) {
 				userMessagesMap.set(message.id, {
@@ -21,6 +27,12 @@ client.once('ready', async () => {
 				});
 			}
 		});
+
+		totalMessages += allMessages.size;
+		console.log(`Fetched ${allMessages.size} messages, total so far: ${totalMessages}`);
+
+		// Add a delay between fetches to handle rate limits
+		await sleep(1000); // 1-second delay
 	} while (lastMessageId);
 
 	console.log('Printing 20 random cached messages:');
@@ -82,12 +94,11 @@ client.on('interactionCreate', async (interaction) => {
 		const timestamp = new Date(randomizer.timestamp).toLocaleString(
 			'en-US',
 			timestampOptions
-		);	
-		
+		);
+
+		// Debugging logs for attachments
 		console.log('Attachment URL before editReply:', attachment.url);
-		
 		console.log('Message Data in Map:', userMessagesMap.get(randomizer.id));
-		
 		console.log('Retrieved attachment URL:', randomizer.attachment.url);
 
 		await interaction.editReply({
