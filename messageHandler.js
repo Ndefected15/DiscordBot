@@ -2,7 +2,7 @@ const { client } = require('./discordClient');
 const { userMessagesMap } = require('./utils');
 
 client.once('ready', async () => {
-	const channel = await client.channels.fetch('1066395020405518376');
+	const channel = await client.channels.fetch('1066370266780934144');
 
 	let lastMessageId = null;
 	do {
@@ -82,7 +82,13 @@ client.on('interactionCreate', async (interaction) => {
 		const timestamp = new Date(randomizer.timestamp).toLocaleString(
 			'en-US',
 			timestampOptions
-		);
+		);	
+		
+		console.log('Attachment URL before editReply:', attachment.url);
+		
+		console.log('Message Data in Map:', userMessagesMap.get(randomizer.id));
+		
+		console.log('Retrieved attachment URL:', randomizer.attachment.url);
 
 		await interaction.editReply({
 			content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,

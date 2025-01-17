@@ -2,7 +2,7 @@ const { Client, REST, Routes, SlashCommandBuilder } = require('discord.js');
 
 const botConfig = {
 	botID: '1066342002121248778',
-	serverID: '581783173923602433',
+	serverID: '1066350114219769918',
 	botToken: process.env.DJS_TOKEN,
 	intents: [412317132864],
 };
