@@ -22,6 +22,7 @@ client.once('ready', async () => {
 			if (message.attachments.size > 0) {
 				userMessagesMap.set(message.id, {
 					attachment: message.attachments.first(),
+					proxyURL: message.attachments.first().proxyURL, // Store proxyURL
 					timestamp: message.createdTimestamp,
 					authorID: message.author.id,
 				});
@@ -39,8 +40,9 @@ client.once('ready', async () => {
 	console.log('Finished fetching messages!');
 	console.log(`Total messages processed: ${totalMessages}`);
 
-	// Print 20 random cached messages
-	/* console.log('Printing 20 random cached messages:');
+	// Uncomment the following section for debugging if needed
+	/*
+	console.log('Printing 20 random cached messages:');
 	const randomMessages = Array.from(userMessagesMap.values())
 		.sort(() => Math.random() - 0.5)
 		.slice(0, 20);
@@ -49,14 +51,17 @@ client.once('ready', async () => {
 		console.log(`Author ID: ${messageData.authorID}`);
 		console.log(`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`);
 		console.log(`Attachment: ${messageData.attachment.url}`);
+		console.log(`Proxy URL: ${messageData.proxyURL}`);
 		console.log('--------------------------');
-	}); */
-}); 
+	});
+	*/
+});
 
 client.on('messageCreate', async (message) => {
 	if (message.attachments.size > 0 && message.author.id !== client.user.id) {
 		userMessagesMap.set(message.id, {
 			attachment: message.attachments.first(),
+			proxyURL: message.attachments.first().proxyURL, // Store proxyURL
 			timestamp: message.createdTimestamp,
 			authorID: message.author.id,
 		});
@@ -83,6 +88,7 @@ client.on('interactionCreate', async (interaction) => {
 		const randomizer =
 			userMessagesArray[Math.floor(Math.random() * userMessagesArray.length)];
 		const attachment = randomizer.attachment;
+		const proxyURL = randomizer.proxyURL || attachment.url; // Use proxyURL if available
 
 		if (!attachment) {
 			await interaction.editReply('No BeFr found for the specified user.');
@@ -101,12 +107,12 @@ client.on('interactionCreate', async (interaction) => {
 
 		// Troubleshooting logs
 		console.log('Attachment URL before editReply:', attachment.url);
-		console.log('Message Data in Map:', userMessagesMap.get(randomizer.id));
-		console.log('Retrieved attachment URL:', randomizer.attachment.url);
+		console.log('Proxy URL:', proxyURL);
+		console.log('Message Data in Map:', randomizer);
 
 		await interaction.editReply({
 			content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
-			files: [attachment.url],
+			files: [proxyURL], // Use proxyURL instead of attachment.url
 		});
 	}
 });
