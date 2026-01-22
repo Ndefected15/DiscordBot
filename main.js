@@ -2,38 +2,30 @@ const { client, botConfig, slashRegister } = require('./discordClient');
 const { extractMessages } = require('./messageHandler');
 const { backfillRealestStats, resetPeriod } = require('./statsManager');
 
+// Require cron jobs (they now handle daily, weekly, monthly, yearly resets automatically)
 require('./cronJob');
-require('./messageHandler');
 
 client.once('ready', async () => {
 	console.log('Bot connected to Discord');
 
 	try {
-		// Register slash commands
+		// 1️⃣ Register slash commands
 		await slashRegister();
 
-		// Extract all messages to populate the cache
+		// 2️⃣ Extract all messages to populate cache
 		await extractMessages(client);
 		console.log('Initial message extraction complete');
 
-		// -------------------------------
-		// BACKFILL "THE REALEST" STATS
-		// -------------------------------
-		const channelId = '1066395020405518376';
+		// 3️⃣ Backfill "the realest" stats for historical messages
+		// Only all-time counts; week/month/year will reset via cron
+		await backfillRealestStats(client, '1066395020405518376'); // Pass client + channel ID
 
-		// Backfill all historical "the realest" messages
-		// Pass the client so it can fetch messages properly
-		await backfillRealestStats(client, channelId);
-
-		// Reset week/month/year stats to start fresh
+		// 4️⃣ Reset week/month/year counters so future stats track correctly
 		resetPeriod('week');
 		resetPeriod('month');
 		resetPeriod('year');
 
-		console.log(
-			'Historical "the realest" stats backfill complete for all periods',
-		);
-
+		console.log('Historical "the realest" backfill complete for all periods');
 		console.log('Startup tasks completed successfully');
 	} catch (err) {
 		console.error('Startup error:', err);
