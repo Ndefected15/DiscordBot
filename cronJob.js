@@ -12,10 +12,9 @@ const channelID = '1066395020405518376';
 let msgJob;
 
 /**
- * DAILY MESSAGE JOB
+ * Daily "BeFr" job
  */
 function createDailyMessageJob() {
-	// Random time between 2 PM and 8 PM
 	const interval = `${getRandomMinute(59, 0)} ${getRandomHour(20, 14)} * * *`;
 	console.log('Generated interval for today:', interval);
 
@@ -42,13 +41,8 @@ function createDailyMessageJob() {
 
 			await channel.send(`@here Be fr with me rn ${randomMessage}`);
 
-			// Determine "the realest" one hour later
-			setTimeout(
-				() => {
-					theRealest(channel); // internally calls incrementRealest for stats
-				},
-				60 * 60 * 1000,
-			);
+			// Schedule "the realest" one hour later
+			setTimeout(() => theRealest(channel), 60 * 60 * 1000);
 		},
 		null,
 		true,
@@ -59,16 +53,14 @@ function createDailyMessageJob() {
 }
 
 /**
- * MIDNIGHT RESET JOB
- * - Refresh daily message job
- * - Optional: refresh message cache
+ * Midnight reset (daily message + optional message extraction)
  */
 const midnightResetJob = new CronJob(
-	'0 0 * * *', // every day at 00:00
+	'0 0 * * *',
 	async function () {
 		console.log('🌙 Midnight reset running...');
 		try {
-			await extractMessages(client);
+			await extractMessages(client); // Refresh messages cache
 			console.log('Message extraction completed');
 		} catch (err) {
 			console.error('Message extraction failed:', err);
@@ -83,8 +75,7 @@ const midnightResetJob = new CronJob(
 );
 
 /**
- * WEEKLY RESET
- * - Runs Sunday at 00:00
+ * Weekly reset (Sunday 00:00)
  */
 const weeklyResetJob = new CronJob(
 	'0 0 * * 0',
@@ -98,8 +89,7 @@ const weeklyResetJob = new CronJob(
 );
 
 /**
- * MONTHLY RESET
- * - Runs on 1st day of each month at 00:00
+ * Monthly reset (1st day of month)
  */
 const monthlyResetJob = new CronJob(
 	'0 0 1 * *',
@@ -113,8 +103,7 @@ const monthlyResetJob = new CronJob(
 );
 
 /**
- * YEARLY RESET
- * - Runs Jan 1st at 00:00
+ * Yearly reset (Jan 1st)
  */
 const yearlyResetJob = new CronJob(
 	'0 0 1 1 *',
@@ -127,11 +116,11 @@ const yearlyResetJob = new CronJob(
 	'America/New_York',
 );
 
-// Start all cron jobs
+// Start CronJobs
 midnightResetJob.start();
 weeklyResetJob.start();
 monthlyResetJob.start();
 yearlyResetJob.start();
 
-// Initialize first daily message job
+// Start first daily message job
 createDailyMessageJob();
