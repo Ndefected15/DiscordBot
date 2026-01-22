@@ -73,18 +73,26 @@ function saveStats() {
 
 /**
  * Backfill historical "the realest" stats from a channel
- * Populates all-time, week, month, and year stats
+ * Only counts messages in the specified time range for the given period
  * @param {Client} client - logged-in Discord.js client
  * @param {string} channelId - ID of the channel to scan
+ * @param {string} period - 'allTime' | 'week' | 'month' | 'year'
+ * @param {number} days - number of days to look back (ignored for allTime)
  */
-async function backfillRealestStats(client, channelId) {
-	console.log('Starting backfill of "the realest" stats...');
+async function backfillRealestStats(
+	client,
+	channelId,
+	period = 'allTime',
+	days = 0,
+) {
+	console.log(`Starting backfill for period: ${period}...`);
 	const channel = await client.channels.fetch(channelId);
 	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 	let lastMessageId = null;
 	let totalProcessed = 0;
 
 	const now = Date.now();
+	const dayMs = 24 * 60 * 60 * 1000;
 
 	do {
 		const options = { limit: 100 };
@@ -97,20 +105,21 @@ async function backfillRealestStats(client, channelId) {
 			if (!msg.content) return;
 
 			const match = msg.content.match(/<@!?(\d+)> is the realest today/);
-			if (match) {
-				const userId = match[1];
+			if (!match) return;
 
-				// Determine which periods this message counts for
-				const periods = ['allTime'];
-				const ageMs = now - msg.createdTimestamp;
-				const dayMs = 24 * 60 * 60 * 1000;
+			const userId = match[1];
 
-				if (ageMs <= 7 * dayMs) periods.push('week');
-				if (ageMs <= 30 * dayMs) periods.push('month');
-				if (ageMs <= 365 * dayMs) periods.push('year');
-
-				incrementRealest(userId, periods);
+			if (period === 'allTime') {
+				// Backfill everything for all-time
+				incrementRealest(userId, ['allTime']);
 				totalProcessed++;
+			} else {
+				// Only include messages within the past `days` days
+				const ageMs = now - msg.createdTimestamp;
+				if (ageMs <= days * dayMs) {
+					incrementRealest(userId, [period]);
+					totalProcessed++;
+				}
 			}
 		});
 
@@ -118,7 +127,7 @@ async function backfillRealestStats(client, channelId) {
 	} while (lastMessageId);
 
 	console.log(
-		`Backfill complete! Total "realest" messages processed: ${totalProcessed}`,
+		`Backfill complete for ${period}! Messages processed: ${totalProcessed}`,
 	);
 	saveStats();
 }
