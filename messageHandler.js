@@ -60,66 +60,81 @@ client.on('messageCreate', async (message) => {
  * Slash command handler
  */
 client.on('interactionCreate', async (interaction) => {
-	if (!interaction.isCommand()) return;
+	if (!interaction.isChatInputCommand()) return;
 
 	const userId = interaction.user.id;
-	await interaction.deferReply();
 
-	/**
-	 * /random_befr
-	 */
-	if (interaction.commandName === 'random_befr') {
-		const userMessages = Array.from(userMessagesMap.values()).filter(
-			(msg) => msg.authorID === userId,
-		);
+	try {
+		// Defer reply for async handling
+		await interaction.deferReply({ ephemeral: false });
 
-		if (userMessages.length === 0) {
-			return interaction.editReply('No BeFr found for you.');
-		}
+		switch (interaction.commandName) {
+			// ----------------------------
+			// /random_befr
+			// ----------------------------
+			case 'random_befr': {
+				const userMessages = Array.from(userMessagesMap.values()).filter(
+					(msg) => msg.authorID === userId,
+				);
 
-		const randomMessage =
-			userMessages[Math.floor(Math.random() * userMessages.length)];
+				if (!userMessages.length) {
+					return interaction.editReply('No BeFr found for you.');
+				}
 
-		return sendMessageAttachment(interaction, randomMessage);
-	}
+				const randomMessage =
+					userMessages[Math.floor(Math.random() * userMessages.length)];
 
-	/**
-	 * /befr_at
-	 */
-	if (interaction.commandName === 'befr_at') {
-		const period = interaction.options.getString('period');
-		const targetTime = getTargetTimestamp(period);
-		if (!targetTime) {
-			return interaction.editReply('Invalid time period.');
-		}
-
-		const userMessages = Array.from(userMessagesMap.values()).filter(
-			(msg) => msg.authorID === userId,
-		);
-
-		if (userMessages.length === 0) {
-			return interaction.editReply('No BeFr found for you.');
-		}
-
-		const closest = findClosestMessage(userMessages, targetTime);
-		if (!closest) {
-			return interaction.editReply('No BeFr found near that time.');
-		}
-
-		return sendMessageAttachment(interaction, closest, period);
-	}
-
-	/**
-	 * /befr_scoreboard
-	 */
-	if (interaction.commandName === 'befr_scoreboard') {
-		try {
-			await handleScoreboard(interaction, { ephemeral: false }); // send publicly
-		} catch (err) {
-			console.error('Error in handleScoreboard:', err);
-			if (!interaction.replied) {
-				await interaction.editReply('Failed to fetch scoreboard.');
+				return sendMessageAttachment(interaction, randomMessage);
 			}
+
+			// ----------------------------
+			// /befr_at
+			// ----------------------------
+			case 'befr_at': {
+				const period = interaction.options.getString('period');
+				const targetTime = getTargetTimestamp(period);
+
+				if (!targetTime) {
+					return interaction.editReply('Invalid time period.');
+				}
+
+				const userMessages = Array.from(userMessagesMap.values()).filter(
+					(msg) => msg.authorID === userId,
+				);
+
+				if (!userMessages.length) {
+					return interaction.editReply('No BeFr found for you.');
+				}
+
+				const closest = findClosestMessage(userMessages, targetTime);
+				if (!closest) {
+					return interaction.editReply('No BeFr found near that time.');
+				}
+
+				return sendMessageAttachment(interaction, closest, period);
+			}
+
+			// ----------------------------
+			// /befr_scoreboard
+			// ----------------------------
+			case 'befr_scoreboard':
+				try {
+					await handleScoreboard(interaction);
+				} catch (err) {
+					console.error('Error in handleScoreboard:', err);
+					if (!interaction.replied) {
+						await interaction.editReply('Failed to fetch scoreboard.');
+					}
+				}
+				break;
+
+			default:
+				console.warn('Unhandled command:', interaction.commandName);
+		}
+	} catch (err) {
+		console.error('Error handling interaction:', err);
+		if (!interaction.replied) {
+			await interaction.editReply('❌ An unexpected error occurred.');
 		}
 	}
 });
@@ -147,7 +162,6 @@ async function sendMessageAttachment(interaction, messageMeta, periodLabel) {
 			? `Here's a BeFr from about ${periodLabel} ago`
 			: `Here's a random BeFr`;
 
-		// Attempt to send attachment; fallback to URL if too large
 		try {
 			await interaction.editReply({
 				content: `${prefix} <@${messageMeta.authorID}> (sent at ${timestamp}):`,

@@ -1,73 +1,52 @@
-const { client } = require('./discordClient');
+// scoreboard.js
 const { getLeaderboard } = require('./statsManager');
 
 /**
- * Handle /befr_scoreboard command
- * @param {import('discord.js').CommandInteraction} interaction
+ * Handle /befr_scoreboard interaction
+ * @param {ChatInputCommandInteraction} interaction
  */
 async function handleScoreboard(interaction) {
 	try {
-		const period = interaction.options.getString('period') || 'allTime'; // default
-		if (!['allTime', 'week', 'month', 'year'].includes(period)) {
-			return interaction.reply({
-				content: 'Invalid period. Choose: allTime, week, month, year.',
-				ephemeral: true,
-			});
-		}
+		// Defer the reply to give time for processing
+		await interaction.deferReply();
 
-		// Get leaderboard data
+		// Get the selected period
+		const periodOption = interaction.options.getString('period'); // 'all', 'week', 'month', 'year'
+		const periodMap = {
+			all: 'allTime',
+			week: 'week',
+			month: 'month',
+			year: 'year',
+		};
+		const period = periodMap[periodOption] || 'allTime';
+
+		// Fetch leaderboard
 		const leaderboard = getLeaderboard(period);
 
-		if (!leaderboard.length) {
-			return interaction.reply({
-				content: 'No stats available yet!',
-				ephemeral: true,
-			});
-		}
+		// Format top 10 users
+		const top10 = leaderboard
+			.slice(0, 10)
+			.map(
+				(entry, index) => `${index + 1}. <@${entry.userId}> - ${entry.count}`,
+			)
+			.join('\n');
 
-		// Build leaderboard string
-		let message = `🏆 **BeFr Scoreboard — ${capitalizePeriod(period)}** 🏆\n\n`;
-		const maxDisplay = Math.min(10, leaderboard.length);
+		const replyContent = top10 || 'No data for this period yet.';
 
-		for (let i = 0; i < maxDisplay; i++) {
-			const entry = leaderboard[i];
-			message += `**${i + 1}. <@${entry.userId}>** — ${entry.count}\n`;
-		}
-
-		// Send publicly in the channel
-		await interaction.reply({
-			content: message,
-			ephemeral: false, // visible to everyone
+		// Edit the deferred reply
+		await interaction.editReply({
+			content: `🏆 BeFr Realest Leaderboard (${periodOption}):\n${replyContent}`,
 		});
 	} catch (err) {
 		console.error('Error in handleScoreboard:', err);
-		// Use try/catch around reply in case already deferred or replied
-		try {
-			if (!interaction.replied && !interaction.deferred) {
-				await interaction.reply({
-					content: 'Something went wrong retrieving the scoreboard 😔',
-					ephemeral: true,
-				});
-			} else {
-				await interaction.followUp({
-					content: 'Something went wrong retrieving the scoreboard 😔',
-					ephemeral: true,
-				});
-			}
-		} catch (error) {
-			console.error('Failed to notify user about scoreboard error:', error);
+		// Only reply if interaction hasn't already been replied to
+		if (!interaction.replied) {
+			await interaction.reply({
+				content: '❌ Error fetching scoreboard.',
+				ephemeral: true,
+			});
 		}
 	}
-}
-
-/**
- * Capitalize period name for display
- * @param {string} str
- * @returns {string}
- */
-function capitalizePeriod(str) {
-	if (!str) return '';
-	return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 module.exports = { handleScoreboard };
