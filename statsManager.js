@@ -1,10 +1,11 @@
+// statsManager.js
 const fs = require('fs');
 const path = require('path');
 
 const statsFile = path.join(__dirname, 'stats.json');
 let stats = {};
 
-// Load existing stats
+// Load existing stats from file
 if (fs.existsSync(statsFile)) {
 	try {
 		stats = JSON.parse(fs.readFileSync(statsFile, 'utf8'));
@@ -25,7 +26,7 @@ function initUser(userId) {
 
 /**
  * Increment stats for a user
- * periods: array of periods to increment (default: all)
+ * periods: array of periods to increment
  */
 function incrementRealest(
 	userId,
@@ -39,7 +40,7 @@ function incrementRealest(
 }
 
 /**
- * Reset stats for a given period (week/month/year)
+ * Reset stats for a specific period
  */
 function resetPeriod(period) {
 	for (const userId in stats) {
@@ -72,12 +73,11 @@ function saveStats() {
 }
 
 /**
- * Backfill historical "the realest" stats from a channel
- * Only counts messages in the specified time range for the given period
+ * Backfill "the realest" stats from a Discord channel
  * @param {Client} client - logged-in Discord.js client
  * @param {string} channelId - ID of the channel to scan
- * @param {string} period - 'allTime' | 'week' | 'month' | 'year'
- * @param {number} days - number of days to look back (ignored for allTime)
+ * @param {string} period - 'allTime', 'week', 'month', or 'year'
+ * @param {number} days - optional, number of days to backfill for week/month/year
  */
 async function backfillRealestStats(
 	client,
@@ -86,50 +86,56 @@ async function backfillRealestStats(
 	days = 0,
 ) {
 	console.log(`Starting backfill for period: ${period}...`);
-	const channel = await client.channels.fetch(channelId);
-	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-	let lastMessageId = null;
-	let totalProcessed = 0;
+	if (!client || !client.channels) {
+		console.error('Discord client not ready for backfill');
+		return;
+	}
 
-	const now = Date.now();
-	const dayMs = 24 * 60 * 60 * 1000;
+	try {
+		const channel = await client.channels.fetch(channelId);
+		const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+		let lastMessageId = null;
+		let totalProcessed = 0;
+		const now = Date.now();
+		const dayMs = 24 * 60 * 60 * 1000;
 
-	do {
-		const options = { limit: 100 };
-		if (lastMessageId) options.before = lastMessageId;
+		do {
+			const options = { limit: 100 };
+			if (lastMessageId) options.before = lastMessageId;
 
-		const messages = await channel.messages.fetch(options);
-		lastMessageId = messages.lastKey();
+			const messages = await channel.messages.fetch(options);
+			lastMessageId = messages.lastKey();
 
-		messages.forEach((msg) => {
-			if (!msg.content) return;
+			messages.forEach((msg) => {
+				if (!msg.content) return;
 
-			const match = msg.content.match(/<@!?(\d+)> is the realest today/);
-			if (!match) return;
+				const match = msg.content.match(/<@!?(\d+)> is the realest today/);
+				if (match) {
+					const userId = match[1];
 
-			const userId = match[1];
+					// Determine if this message falls into the period
+					let include = false;
+					if (period === 'allTime') include = true;
+					else if (days > 0 && now - msg.createdTimestamp <= days * dayMs)
+						include = true;
 
-			if (period === 'allTime') {
-				// Backfill everything for all-time
-				incrementRealest(userId, ['allTime']);
-				totalProcessed++;
-			} else {
-				// Only include messages within the past `days` days
-				const ageMs = now - msg.createdTimestamp;
-				if (ageMs <= days * dayMs) {
-					incrementRealest(userId, [period]);
-					totalProcessed++;
+					if (include) {
+						incrementRealest(userId, [period]);
+						totalProcessed++;
+					}
 				}
-			}
-		});
+			});
 
-		await sleep(500); // avoid hitting rate limits
-	} while (lastMessageId);
+			await sleep(500); // avoid rate limits
+		} while (lastMessageId);
 
-	console.log(
-		`Backfill complete for ${period}! Messages processed: ${totalProcessed}`,
-	);
-	saveStats();
+		console.log(
+			`Backfill complete for ${period}! Messages processed: ${totalProcessed}`,
+		);
+		saveStats();
+	} catch (err) {
+		console.error('Backfill failed:', err);
+	}
 }
 
 module.exports = {
