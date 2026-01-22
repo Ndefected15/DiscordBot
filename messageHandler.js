@@ -5,6 +5,7 @@ const {
 	findClosestMessage,
 } = require('./utils');
 
+const { incrementRealest, backfillRealestStats } = require('./statsManager');
 const { handleScoreboard } = require('./scoreboard');
 
 const CHANNEL_ID = '1066395020405518376';
@@ -15,7 +16,6 @@ const CHANNEL_ID = '1066395020405518376';
 async function extractMessages(client) {
 	const channel = await client.channels.fetch(CHANNEL_ID);
 	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 	let lastMessageId = null;
 
 	do {
@@ -63,81 +63,76 @@ client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isCommand()) return;
 
 	const userId = interaction.user.id;
-	await interaction.deferReply({ ephemeral: true }); // ephemeral avoids multiple deferred replies
+	await interaction.deferReply();
 
-	try {
-		/**
-		 * /random_befr
-		 */
-		if (interaction.commandName === 'random_befr') {
-			const userMessages = Array.from(userMessagesMap.values()).filter(
-				(msg) => msg.authorID === userId,
-			);
+	/**
+	 * /random_befr
+	 */
+	if (interaction.commandName === 'random_befr') {
+		const userMessages = Array.from(userMessagesMap.values()).filter(
+			(msg) => msg.authorID === userId,
+		);
 
-			if (userMessages.length === 0) {
-				return interaction.editReply('No BeFr found for you.');
-			}
-
-			const randomMessage =
-				userMessages[Math.floor(Math.random() * userMessages.length)];
-
-			return sendMessageAttachment(interaction, randomMessage);
+		if (userMessages.length === 0) {
+			return interaction.editReply('No BeFr found for you.');
 		}
 
-		/**
-		 * /befr_at
-		 */
-		if (interaction.commandName === 'befr_at') {
-			const period = interaction.options.getString('period');
-			const targetTime = getTargetTimestamp(period);
+		const randomMessage =
+			userMessages[Math.floor(Math.random() * userMessages.length)];
 
-			if (!targetTime) {
-				return interaction.editReply('Invalid time period.');
-			}
+		return sendMessageAttachment(interaction, randomMessage);
+	}
 
-			const userMessages = Array.from(userMessagesMap.values()).filter(
-				(msg) => msg.authorID === userId,
-			);
-
-			if (userMessages.length === 0) {
-				return interaction.editReply('No BeFr found for you.');
-			}
-
-			const closest = findClosestMessage(userMessages, targetTime);
-
-			if (!closest) {
-				return interaction.editReply('No BeFr found near that time.');
-			}
-
-			return sendMessageAttachment(interaction, closest, period);
+	/**
+	 * /befr_at
+	 */
+	if (interaction.commandName === 'befr_at') {
+		const period = interaction.options.getString('period');
+		const targetTime = getTargetTimestamp(period);
+		if (!targetTime) {
+			return interaction.editReply('Invalid time period.');
 		}
 
-		/**
-		 * /befr_scoreboard
-		 */
-		if (interaction.commandName === 'befr_scoreboard') {
-			// delegate entirely to scoreboard.js
-			return handleScoreboard(interaction);
+		const userMessages = Array.from(userMessagesMap.values()).filter(
+			(msg) => msg.authorID === userId,
+		);
+
+		if (userMessages.length === 0) {
+			return interaction.editReply('No BeFr found for you.');
 		}
-	} catch (err) {
-		console.error('Error handling command:', err);
-		if (!interaction.replied) {
-			await interaction.editReply(
-				'Something went wrong while processing that command.',
-			);
+
+		const closest = findClosestMessage(userMessages, targetTime);
+		if (!closest) {
+			return interaction.editReply('No BeFr found near that time.');
+		}
+
+		return sendMessageAttachment(interaction, closest, period);
+	}
+
+	/**
+	 * /befr_scoreboard
+	 */
+	if (interaction.commandName === 'befr_scoreboard') {
+		try {
+			await handleScoreboard(interaction, { ephemeral: false }); // send publicly
+		} catch (err) {
+			console.error('Error in handleScoreboard:', err);
+			if (!interaction.replied) {
+				await interaction.editReply('Failed to fetch scoreboard.');
+			}
 		}
 	}
 });
 
 /**
- * Helper to fetch attachment fresh + reply
+ * STEP 4 helper — fetch fresh attachment + reply
  */
 async function sendMessageAttachment(interaction, messageMeta, periodLabel) {
 	try {
 		const channel = await client.channels.fetch(messageMeta.channelId);
 		const message = await channel.messages.fetch(messageMeta.messageId);
-
 		const attachment = message.attachments.first();
+
 		if (!attachment) {
 			return interaction.editReply('That BeFr no longer exists.');
 		}
@@ -152,7 +147,7 @@ async function sendMessageAttachment(interaction, messageMeta, periodLabel) {
 			? `Here's a BeFr from about ${periodLabel} ago`
 			: `Here's a random BeFr`;
 
-		// Try uploading, fallback to URL if too large
+		// Attempt to send attachment; fallback to URL if too large
 		try {
 			await interaction.editReply({
 				content: `${prefix} <@${messageMeta.authorID}> (sent at ${timestamp}):`,
@@ -160,7 +155,6 @@ async function sendMessageAttachment(interaction, messageMeta, periodLabel) {
 			});
 		} catch (err) {
 			if (err.code === 40005) {
-				// 40005 = Request entity too large
 				await interaction.editReply({
 					content: `${prefix} <@${messageMeta.authorID}> (sent at ${timestamp}):\n${attachment.url}`,
 				});

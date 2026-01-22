@@ -15,16 +15,25 @@ if (fs.existsSync(statsFile)) {
 	}
 }
 
-function incrementRealest(userId) {
+// Initialize user if not exists
+function initUser(userId) {
 	if (!stats[userId])
 		stats[userId] = { allTime: 0, week: 0, month: 0, year: 0 };
-	stats[userId].allTime++;
-	stats[userId].week++;
-	stats[userId].month++;
-	stats[userId].year++;
+}
+
+// Increment stats for a user
+function incrementRealest(
+	userId,
+	periods = ['allTime', 'week', 'month', 'year'],
+) {
+	initUser(userId);
+	periods.forEach((period) => {
+		stats[userId][period]++;
+	});
 	saveStats();
 }
 
+// Reset a period
 function resetPeriod(period) {
 	for (const userId in stats) {
 		if (stats[userId][period] !== undefined) stats[userId][period] = 0;
@@ -32,6 +41,7 @@ function resetPeriod(period) {
 	saveStats();
 }
 
+// Get leaderboard for a period
 function getLeaderboard(period) {
 	const leaderboard = [];
 	for (const userId in stats) {
@@ -41,6 +51,7 @@ function getLeaderboard(period) {
 	return leaderboard;
 }
 
+// Save stats
 function saveStats() {
 	try {
 		fs.writeFileSync(statsFile, JSON.stringify(stats, null, 2), 'utf8');
@@ -50,15 +61,19 @@ function saveStats() {
 }
 
 /**
- * BACKFILL HISTORICAL "THE REALEST" MESSAGES
- * @param {string} channelId - ID of the channel to scan
+ * Backfill historical "the realest" stats
+ * Calculates week, month, year, and all-time
+ * @param {string} channelId
  */
 async function backfillRealestStats(channelId) {
 	console.log('Starting backfill of "the realest" stats...');
+
 	const channel = await client.channels.fetch(channelId);
 	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 	let lastMessageId = null;
 	let totalProcessed = 0;
+
+	const now = new Date();
 
 	do {
 		const options = { limit: 100 };
@@ -69,22 +84,39 @@ async function backfillRealestStats(channelId) {
 
 		messages.forEach((msg) => {
 			if (!msg.content) return;
+
 			// Match pattern "<@USERID> is the realest today"
 			const match = msg.content.match(/<@!?(\d+)> is the realest today/);
-			if (match) {
-				const userId = match[1];
-				incrementRealest(userId);
-				totalProcessed++;
-			}
+			if (!match) return;
+
+			const userId = match[1];
+			const messageDate = new Date(msg.createdTimestamp);
+
+			const periods = ['allTime'];
+
+			// Week: within last 7 days
+			if ((now - messageDate) / (1000 * 60 * 60 * 24) <= 7)
+				periods.push('week');
+
+			// Month: within last 30 days
+			if ((now - messageDate) / (1000 * 60 * 60 * 24) <= 30)
+				periods.push('month');
+
+			// Year: within last 365 days
+			if ((now - messageDate) / (1000 * 60 * 60 * 24) <= 365)
+				periods.push('year');
+
+			incrementRealest(userId, periods);
+			totalProcessed++;
 		});
 
-		// Optional delay to avoid rate limits
 		await sleep(500);
 	} while (lastMessageId);
 
 	console.log(
 		`Backfill complete! Total "realest" messages processed: ${totalProcessed}`,
 	);
+	saveStats();
 }
 
 module.exports = {

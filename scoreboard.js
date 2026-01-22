@@ -1,61 +1,73 @@
-// scoreboard.js
+const { client } = require('./discordClient');
 const { getLeaderboard } = require('./statsManager');
 
 /**
  * Handle /befr_scoreboard command
- * Options:
- *   period: allTime | week | month | year
+ * @param {import('discord.js').CommandInteraction} interaction
  */
 async function handleScoreboard(interaction) {
 	try {
-		// Get the period option from the command; default to allTime
-		const option = interaction.options.getString('period') || 'allTime';
+		const period = interaction.options.getString('period') || 'allTime'; // default
+		if (!['allTime', 'week', 'month', 'year'].includes(period)) {
+			return interaction.reply({
+				content: 'Invalid period. Choose: allTime, week, month, year.',
+				ephemeral: true,
+			});
+		}
 
-		// Map option to stats key
-		const periodMap = {
-			weekly: 'week',
-			monthly: 'month',
-			yearly: 'year',
-			alltime: 'allTime',
-			allTime: 'allTime', // in case user sends camelCase
-			week: 'week',
-			month: 'month',
-			year: 'year',
-		};
-		const period = periodMap[option.toLowerCase()] || 'allTime';
-
-		// Get leaderboard for the period
+		// Get leaderboard data
 		const leaderboard = getLeaderboard(period);
 
-		if (!leaderboard || leaderboard.length === 0) {
-			// Reply safely if no stats yet
-			return interaction.editReply(
-				`No "the realest" stats recorded for ${period} yet.`,
-			);
+		if (!leaderboard.length) {
+			return interaction.reply({
+				content: 'No stats available yet!',
+				ephemeral: true,
+			});
 		}
 
-		// Build a content string for the scoreboard
-		let content = `📊 **BeFr Scoreboard (${period})**\n\n`;
-		leaderboard.forEach((entry, index) => {
-			content += `${index + 1}. <@${entry.userId}> — ${entry.count}\n`;
-		});
+		// Build leaderboard string
+		let message = `🏆 **BeFr Scoreboard — ${capitalizePeriod(period)}** 🏆\n\n`;
+		const maxDisplay = Math.min(10, leaderboard.length);
 
-		// Reply to the user
-		await interaction.editReply({ content });
+		for (let i = 0; i < maxDisplay; i++) {
+			const entry = leaderboard[i];
+			message += `**${i + 1}. <@${entry.userId}>** — ${entry.count}\n`;
+		}
+
+		// Send publicly in the channel
+		await interaction.reply({
+			content: message,
+			ephemeral: false, // visible to everyone
+		});
 	} catch (err) {
 		console.error('Error in handleScoreboard:', err);
-
-		// Only edit reply if it hasn't already been sent
-		if (!interaction.replied && !interaction.deferred) {
-			await interaction.reply(
-				'Sorry, something went wrong while fetching the scoreboard 😔',
-			);
-		} else {
-			await interaction.editReply(
-				'Sorry, something went wrong while fetching the scoreboard 😔',
-			);
+		// Use try/catch around reply in case already deferred or replied
+		try {
+			if (!interaction.replied && !interaction.deferred) {
+				await interaction.reply({
+					content: 'Something went wrong retrieving the scoreboard 😔',
+					ephemeral: true,
+				});
+			} else {
+				await interaction.followUp({
+					content: 'Something went wrong retrieving the scoreboard 😔',
+					ephemeral: true,
+				});
+			}
+		} catch (error) {
+			console.error('Failed to notify user about scoreboard error:', error);
 		}
 	}
+}
+
+/**
+ * Capitalize period name for display
+ * @param {string} str
+ * @returns {string}
+ */
+function capitalizePeriod(str) {
+	if (!str) return '';
+	return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 module.exports = { handleScoreboard };

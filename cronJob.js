@@ -2,17 +2,13 @@ const { CronJob } = require('cron');
 const { client } = require('./discordClient');
 const { getRandomHour, getRandomMinute, theRealest } = require('./utils');
 const { extractMessages } = require('./messageHandler');
-const {
-	resetWeeklyStats,
-	resetMonthlyStats,
-	resetYearlyStats,
-} = require('./statsManager');
+const { resetPeriod, backfillRealestStats } = require('./statsManager');
 
 const channelID = '1066395020405518376';
 let msgJob;
 
 /**
- * Daily "BeFr" job
+ * DAILY MESSAGE JOB
  */
 function createDailyMessageJob() {
 	const interval = `${getRandomMinute(59, 0)} ${getRandomHour(20, 14)} * * *`;
@@ -22,8 +18,7 @@ function createDailyMessageJob() {
 		interval,
 		async function () {
 			const channel = await client.channels.fetch(channelID);
-
-			const messageArray = [
+			const messagesArray = [
 				'<:Big_Iron:795054994457624577>',
 				'<:HmmDanger:636268056024449034>',
 				'<a:PartyBear:699413102596325446>',
@@ -37,12 +32,17 @@ function createDailyMessageJob() {
 			];
 
 			const randomMessage =
-				messageArray[Math.floor(Math.random() * messageArray.length)];
+				messagesArray[Math.floor(Math.random() * messagesArray.length)];
 
 			await channel.send(`@here Be fr with me rn ${randomMessage}`);
 
-			// Schedule "the realest" one hour later
-			setTimeout(() => theRealest(channel), 60 * 60 * 1000);
+			// One hour later: pick "the realest"
+			setTimeout(
+				() => {
+					theRealest(channel); // this updates stats internally
+				},
+				60 * 60 * 1000,
+			);
 		},
 		null,
 		true,
@@ -53,14 +53,14 @@ function createDailyMessageJob() {
 }
 
 /**
- * Midnight reset (daily message + optional message extraction)
+ * MIDNIGHT RESET
  */
 const midnightResetJob = new CronJob(
 	'0 0 * * *',
 	async function () {
 		console.log('🌙 Midnight reset running...');
 		try {
-			await extractMessages(client); // Refresh messages cache
+			await extractMessages(client); // optional refresh
 			console.log('Message extraction completed');
 		} catch (err) {
 			console.error('Message extraction failed:', err);
@@ -75,13 +75,13 @@ const midnightResetJob = new CronJob(
 );
 
 /**
- * Weekly reset (Sunday 00:00)
+ * WEEKLY RESET (Sunday 00:00)
  */
 const weeklyResetJob = new CronJob(
 	'0 0 * * 0',
 	function () {
 		console.log('📅 Weekly stats reset');
-		resetWeeklyStats();
+		resetPeriod('week');
 	},
 	null,
 	true,
@@ -89,13 +89,13 @@ const weeklyResetJob = new CronJob(
 );
 
 /**
- * Monthly reset (1st day of month)
+ * MONTHLY RESET (1st day of month)
  */
 const monthlyResetJob = new CronJob(
 	'0 0 1 * *',
 	function () {
 		console.log('🗓️ Monthly stats reset');
-		resetMonthlyStats();
+		resetPeriod('month');
 	},
 	null,
 	true,
@@ -103,20 +103,20 @@ const monthlyResetJob = new CronJob(
 );
 
 /**
- * Yearly reset (Jan 1st)
+ * YEARLY RESET (Jan 1st)
  */
 const yearlyResetJob = new CronJob(
 	'0 0 1 1 *',
 	function () {
 		console.log('🎉 Yearly stats reset');
-		resetYearlyStats();
+		resetPeriod('year');
 	},
 	null,
 	true,
 	'America/New_York',
 );
 
-// Start CronJobs
+// Start cron jobs
 midnightResetJob.start();
 weeklyResetJob.start();
 monthlyResetJob.start();
@@ -124,3 +124,13 @@ yearlyResetJob.start();
 
 // Start first daily message job
 createDailyMessageJob();
+
+// Backfill historical "the realest" stats at startup
+(async () => {
+	try {
+		await backfillRealestStats(channelID);
+		console.log('Historical "the realest" stats backfill complete');
+	} catch (err) {
+		console.error('Backfill failed:', err);
+	}
+})();
