@@ -1,10 +1,14 @@
 const { client } = require('./discordClient');
 const { userMessagesMap } = require('./utils');
 
-client.once('ready', async () => {
-	const channel = await client.channels.fetch('1066395020405518376');
+const CHANNEL_ID = '1066395020405518376';
 
-	// Helper function to introduce delay
+/**
+ * Extract messages ONCE (startup or manual call)
+ * Stores only stable identifiers
+ */
+async function extractMessages(client) {
+	const channel = await client.channels.fetch(CHANNEL_ID);
 	const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 	let lastMessageId = null;
@@ -14,84 +18,76 @@ client.once('ready', async () => {
 		const options = { limit: 100 };
 		if (lastMessageId) options.before = lastMessageId;
 
-		const allMessages = await channel.messages.fetch(options);
-		lastMessageId = allMessages.lastKey();
+		const messages = await channel.messages.fetch(options);
+		lastMessageId = messages.lastKey();
 
-		// Process each message in the batch
-		allMessages.forEach((message) => {
+		messages.forEach((message) => {
 			if (message.attachments.size > 0) {
 				userMessagesMap.set(message.id, {
-					attachment: message.attachments.first(),
-					proxyURL: message.attachments.first().proxyURL, // Store proxyURL
-					timestamp: message.createdTimestamp,
+					messageId: message.id,
+					channelId: message.channel.id,
 					authorID: message.author.id,
+					timestamp: message.createdTimestamp,
 				});
 			}
 		});
 
-		// Update and print total message count
-		totalMessages += allMessages.size;
-		console.log(`Fetched ${allMessages.size} messages, total so far: ${totalMessages}`);
+		totalMessages += messages.size;
+		console.log(
+			`Fetched ${messages.size} messages, total so far: ${totalMessages}`,
+		);
 
-		// Add a delay between fetches to handle rate limits
-		await sleep(1000); // 1-second delay
+		await sleep(1000);
 	} while (lastMessageId);
 
 	console.log('Finished fetching messages!');
 	console.log(`Total messages processed: ${totalMessages}`);
+}
 
-	// Uncomment the following section for debugging if needed
-	/*
-	console.log('Printing 20 random cached messages:');
-	const randomMessages = Array.from(userMessagesMap.values())
-		.sort(() => Math.random() - 0.5)
-		.slice(0, 20);
-	randomMessages.forEach((messageData, index) => {
-		console.log(`Message ${index + 1}:`);
-		console.log(`Author ID: ${messageData.authorID}`);
-		console.log(`Timestamp: ${new Date(messageData.timestamp).toLocaleString()}`);
-		console.log(`Attachment: ${messageData.attachment.url}`);
-		console.log(`Proxy URL: ${messageData.proxyURL}`);
-		console.log('--------------------------');
-	});
-	*/
-});
-
+/**
+ * Live message listener (keeps cache fresh during the day)
+ */
 client.on('messageCreate', async (message) => {
 	if (message.attachments.size > 0 && message.author.id !== client.user.id) {
 		userMessagesMap.set(message.id, {
-			attachment: message.attachments.first(),
-			proxyURL: message.attachments.first().proxyURL, // Store proxyURL
-			timestamp: message.createdTimestamp,
+			messageId: message.id,
+			channelId: message.channel.id,
 			authorID: message.author.id,
+			timestamp: message.createdTimestamp,
 		});
 	}
 });
 
+/**
+ * /random_befr command — re-fetches message ON DEMAND
+ */
 client.on('interactionCreate', async (interaction) => {
 	if (!interaction.isCommand()) return;
+	if (interaction.commandName !== 'random_befr') return;
 
 	const userId = interaction.user.id;
+	await interaction.deferReply();
 
-	if (interaction.commandName === 'random_befr') {
-		await interaction.deferReply();
+	const userMessagesArray = Array.from(userMessagesMap.values()).filter(
+		(msg) => msg.authorID === userId,
+	);
 
-		const userMessagesArray = Array.from(userMessagesMap.values()).filter(
-			(msg) => msg.authorID === userId
-		);
+	if (userMessagesArray.length === 0) {
+		await interaction.editReply('No BeFr found for the specified user.');
+		return;
+	}
 
-		if (userMessagesArray.length === 0) {
-			await interaction.editReply('No BeFr found for the specified user.');
-			return;
-		}
+	const randomizer =
+		userMessagesArray[Math.floor(Math.random() * userMessagesArray.length)];
 
-		const randomizer =
-			userMessagesArray[Math.floor(Math.random() * userMessagesArray.length)];
-		const attachment = randomizer.attachment;
-		const proxyURL = randomizer.proxyURL || attachment.url; // Use proxyURL if available
+	try {
+		// 🔄 Re-fetch the message to get a fresh attachment URL
+		const channel = await client.channels.fetch(randomizer.channelId);
+		const message = await channel.messages.fetch(randomizer.messageId);
 
+		const attachment = message.attachments.first();
 		if (!attachment) {
-			await interaction.editReply('No BeFr found for the specified user.');
+			await interaction.editReply('Attachment no longer exists.');
 			return;
 		}
 
@@ -100,19 +96,20 @@ client.on('interactionCreate', async (interaction) => {
 			timeZoneName: 'short',
 			hour12: true,
 		};
+
 		const timestamp = new Date(randomizer.timestamp).toLocaleString(
 			'en-US',
-			timestampOptions
+			timestampOptions,
 		);
-
-		// Troubleshooting logs
-		console.log('Attachment URL before editReply:', attachment.url);
-		console.log('Proxy URL:', proxyURL);
-		console.log('Message Data in Map:', randomizer);
 
 		await interaction.editReply({
 			content: `Here's a random BeFr from <@${userId}> (sent at ${timestamp}):`,
-			files: [proxyURL], // Use proxyURL instead of attachment.url
+			files: [attachment],
 		});
+	} catch (err) {
+		console.error('Failed to re-fetch message:', err);
+		await interaction.editReply('Something went wrong fetching that BeFr 😔');
 	}
 });
+
+module.exports = { extractMessages };

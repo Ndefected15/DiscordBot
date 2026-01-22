@@ -1,6 +1,19 @@
-const { client, botConfig } = require('./discordClient');
-require('./messageHandler');
-require('./cronJob');
+const { client, botConfig, slashRegister } = require('./discordClient');
+const { extractMessages } = require('./messageHandler');
 
-// Log in to Discord with the bot token
+require('./cronJob');
+require('./messageHandler');
+
+client.once('ready', async () => {
+	console.log('Bot connected to Discord');
+
+	try {
+		await slashRegister();
+		await extractMessages(client);
+		console.log('Startup tasks completed');
+	} catch (err) {
+		console.error('Startup error:', err);
+	}
+});
+
 client.login(botConfig.botToken);

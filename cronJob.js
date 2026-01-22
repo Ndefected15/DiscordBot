@@ -1,6 +1,7 @@
 const { CronJob } = require('cron');
 const { client } = require('./discordClient');
 const { getRandomHour, getRandomMinute, theRealest } = require('./utils');
+const { extractMessages } = require('./messageHandler');
 
 const channelID = '1066395020405518376';
 let msgJob; // Declare the variable for the daily message CronJob
@@ -37,13 +38,16 @@ function createDailyMessageJob() {
 			channel.send(`@here Be fr with me rn ${randomMessage}`);
 
 			// Trigger the additional task (e.g., theRealest) one hour later
-			setTimeout(() => {
-				theRealest(channel);
-			}, 60 * 60 * 1000); // 1 hour in milliseconds
+			setTimeout(
+				() => {
+					theRealest(channel);
+				},
+				60 * 60 * 1000,
+			); // 1 hour in milliseconds
 		},
 		null,
 		true,
-		'America/New_York'
+		'America/New_York',
 	);
 
 	msgJob.start(); // Start the newly created CronJob
@@ -52,8 +56,16 @@ function createDailyMessageJob() {
 // Create a CronJob to reset the daily message job at midnight
 const resetJob = new CronJob(
 	'0 0 * * *', // Runs at midnight every day
-	function () {
+	async function () {
 		console.log('Resetting daily message job at midnight...');
+
+		try {
+			await extractMessages(client);
+			console.log('Message extraction completed at midnight');
+		} catch (err) {
+			console.error('Midnight message extraction failed:', err);
+		}
+
 		if (msgJob) {
 			msgJob.stop(); // Stop the previous day's job, if it exists
 		}
@@ -61,7 +73,7 @@ const resetJob = new CronJob(
 	},
 	null,
 	true,
-	'America/New_York'
+	'America/New_York',
 );
 
 // Start the reset job
