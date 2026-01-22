@@ -1,50 +1,36 @@
-// scoreboard.js
 const { getLeaderboard } = require('./statsManager');
 
-/**
- * Handle /befr_scoreboard interaction
- * @param {ChatInputCommandInteraction} interaction
- */
-async function handleScoreboard(interaction) {
+async function handleScoreboard(interaction, { ephemeral = false } = {}) {
 	try {
-		// Defer the reply to give time for processing
-		await interaction.deferReply();
+		const period =
+			interaction.options.getString('period') === 'all'
+				? 'allTime'
+				: interaction.options.getString('period');
 
-		// Get the selected period
-		const periodOption = interaction.options.getString('period'); // 'all', 'week', 'month', 'year'
-		const periodMap = {
-			all: 'allTime',
-			week: 'week',
-			month: 'month',
-			year: 'year',
-		};
-		const period = periodMap[periodOption] || 'allTime';
-
-		// Fetch leaderboard
 		const leaderboard = getLeaderboard(period);
 
-		// Format top 10 users
-		const top10 = leaderboard
-			.slice(0, 10)
-			.map(
-				(entry, index) => `${index + 1}. <@${entry.userId}> - ${entry.count}`,
-			)
-			.join('\n');
+		if (!leaderboard.length) {
+			return interaction.editReply({
+				content: 'No stats found yet.',
+				ephemeral,
+			});
+		}
 
-		const replyContent = top10 || 'No data for this period yet.';
+		const top = leaderboard.slice(0, 10);
 
-		// Edit the deferred reply
+		const lines = top.map(
+			(entry, i) => `**${i + 1}.** <@${entry.userId}> — **${entry.count}**`,
+		);
+
 		await interaction.editReply({
-			content: `🏆 BeFr Realest Leaderboard (${periodOption}):\n${replyContent}`,
+			content: `🏆 **BeFr Scoreboard (${period})**\n\n${lines.join('\n')}`,
+			ephemeral,
 		});
 	} catch (err) {
-		console.error('Error in handleScoreboard:', err);
-		// Only reply if interaction hasn't already been replied to
+		console.error('Scoreboard error:', err);
+
 		if (!interaction.replied) {
-			await interaction.reply({
-				content: '❌ Error fetching scoreboard.',
-				ephemeral: true,
-			});
+			await interaction.editReply('Failed to fetch scoreboard.');
 		}
 	}
 }

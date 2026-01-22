@@ -1,143 +1,147 @@
-// statsManager.js
 const fs = require('fs');
 const path = require('path');
 
 const statsFile = path.join(__dirname, 'stats.json');
 let stats = {};
 
-// Load existing stats from file
+// --------------------
+// LOAD STATS
+// --------------------
 if (fs.existsSync(statsFile)) {
 	try {
 		stats = JSON.parse(fs.readFileSync(statsFile, 'utf8'));
 	} catch (err) {
-		console.error('Failed to load stats file:', err);
+		console.error('❌ Failed to load stats file:', err);
 		stats = {};
 	}
 }
 
-/**
- * Initialize a user if not already in stats
- */
+// --------------------
+// HELPERS
+// --------------------
 function initUser(userId) {
 	if (!stats[userId]) {
-		stats[userId] = { allTime: 0, week: 0, month: 0, year: 0 };
+		stats[userId] = {
+			allTime: 0,
+			week: 0,
+			month: 0,
+			year: 0,
+		};
 	}
 }
 
-/**
- * Increment stats for a user
- * periods: array of periods to increment
- */
+function saveStats() {
+	try {
+		fs.writeFileSync(statsFile, JSON.stringify(stats, null, 2), 'utf8');
+	} catch (err) {
+		console.error('❌ Failed to save stats:', err);
+	}
+}
+
+// --------------------
+// LIVE INCREMENT (used when "the realest" happens)
+// --------------------
 function incrementRealest(
 	userId,
 	periods = ['allTime', 'week', 'month', 'year'],
 ) {
 	initUser(userId);
-	periods.forEach((period) => {
-		stats[userId][period]++;
-	});
+
+	for (const period of periods) {
+		if (stats[userId][period] !== undefined) {
+			stats[userId][period]++;
+		}
+	}
+
 	saveStats();
 }
 
-/**
- * Reset stats for a specific period
- */
+// --------------------
+// RESET PERIOD
+// --------------------
 function resetPeriod(period) {
 	for (const userId in stats) {
-		if (stats[userId][period] !== undefined) stats[userId][period] = 0;
+		if (stats[userId][period] !== undefined) {
+			stats[userId][period] = 0;
+		}
 	}
 	saveStats();
 }
 
-/**
- * Get leaderboard for a specific period
- */
+// --------------------
+// LEADERBOARD
+// --------------------
 function getLeaderboard(period) {
-	const leaderboard = [];
-	for (const userId in stats) {
-		leaderboard.push({ userId, count: stats[userId][period] || 0 });
-	}
-	leaderboard.sort((a, b) => b.count - a.count);
-	return leaderboard;
+	return Object.entries(stats)
+		.map(([userId, data]) => ({
+			userId,
+			count: data[period] || 0,
+		}))
+		.sort((a, b) => b.count - a.count);
 }
 
+// --------------------
+// BACKFILL
+// --------------------
 /**
- * Save stats to JSON file
- */
-function saveStats() {
-	try {
-		fs.writeFileSync(statsFile, JSON.stringify(stats, null, 2), 'utf8');
-	} catch (err) {
-		console.error('Failed to save stats:', err);
-	}
-}
-
-/**
- * Backfill "the realest" stats from a Discord channel
- * @param {Client} client - logged-in Discord.js client
- * @param {string} channelId - ID of the channel to scan
- * @param {string} period - 'allTime', 'week', 'month', or 'year'
- * @param {number} days - optional, number of days to backfill for week/month/year
+ * Backfill "the realest" stats
+ *
+ * @param {Client} client
+ * @param {string} channelId
+ * @param {'allTime'|'week'|'month'|'year'} period
+ * @param {number|null} daysBack - null for allTime
  */
 async function backfillRealestStats(
 	client,
 	channelId,
 	period = 'allTime',
-	days = 0,
+	daysBack = null,
 ) {
-	console.log(`Starting backfill for period: ${period}...`);
-	if (!client || !client.channels) {
-		console.error('Discord client not ready for backfill');
-		return;
-	}
+	console.log(`🔹 Starting backfill for period: ${period}...`);
 
-	try {
-		const channel = await client.channels.fetch(channelId);
-		const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-		let lastMessageId = null;
-		let totalProcessed = 0;
-		const now = Date.now();
-		const dayMs = 24 * 60 * 60 * 1000;
+	const channel = await client.channels.fetch(channelId);
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-		do {
-			const options = { limit: 100 };
-			if (lastMessageId) options.before = lastMessageId;
+	let lastMessageId = null;
+	let processed = 0;
+	const now = Date.now();
+	const maxAgeMs = daysBack ? daysBack * 24 * 60 * 60 * 1000 : null;
 
-			const messages = await channel.messages.fetch(options);
-			lastMessageId = messages.lastKey();
+	do {
+		const options = { limit: 100 };
+		if (lastMessageId) options.before = lastMessageId;
 
-			messages.forEach((msg) => {
-				if (!msg.content) return;
+		const messages = await channel.messages.fetch(options);
+		lastMessageId = messages.lastKey();
 
-				const match = msg.content.match(/<@!?(\d+)> is the realest today/);
-				if (match) {
-					const userId = match[1];
+		for (const msg of messages.values()) {
+			if (!msg.content) continue;
 
-					// Determine if this message falls into the period
-					let include = false;
-					if (period === 'allTime') include = true;
-					else if (days > 0 && now - msg.createdTimestamp <= days * dayMs)
-						include = true;
+			const match = msg.content.match(/<@!?(\d+)> is the realest today/);
+			if (!match) continue;
 
-					if (include) {
-						incrementRealest(userId, [period]);
-						totalProcessed++;
-					}
-				}
-			});
+			// Skip messages outside time window
+			if (maxAgeMs) {
+				const age = now - msg.createdTimestamp;
+				if (age > maxAgeMs) continue;
+			}
 
-			await sleep(500); // avoid rate limits
-		} while (lastMessageId);
+			const userId = match[1];
+			initUser(userId);
+			stats[userId][period]++;
+			processed++;
+		}
 
-		console.log(
-			`Backfill complete for ${period}! Messages processed: ${totalProcessed}`,
-		);
-		saveStats();
-	} catch (err) {
-		console.error('Backfill failed:', err);
-	}
+		await sleep(500);
+	} while (lastMessageId);
+
+	saveStats();
+	console.log(
+		`✅ Backfill complete for ${period}. Messages processed: ${processed}`,
+	);
 }
 
+// --------------------
 module.exports = {
 	stats,
 	incrementRealest,
