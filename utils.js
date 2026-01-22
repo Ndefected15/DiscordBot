@@ -1,4 +1,5 @@
 const { client, botConfig } = require('./discordClient');
+const { incrementRealest } = require('./statsManager');
 
 const userMessagesMap = new Map();
 
@@ -36,7 +37,7 @@ async function theRealest(channel) {
 	if (userMessagesMap.size === 0) return console.log('No user messages found.');
 
 	const filteredMessages = Array.from(userMessagesMap.values()).filter(
-		(msg) => msg.authorID !== botConfig.botID
+		(msg) => msg.authorID !== botConfig.botID,
 	);
 
 	if (filteredMessages.length === 0)
@@ -46,6 +47,46 @@ async function theRealest(channel) {
 		filteredMessages[Math.floor(Math.random() * filteredMessages.length)];
 
 	channel.send(`<@${randomizer.authorID}> is the realest today`);
+	incrementRealest(randomizer.authorID);
+}
+
+/**
+ * Given a period string, returns a timestamp representing
+ * that amount of time ago from now.
+ */
+function getTargetTimestamp(period) {
+	const now = new Date();
+
+	switch (period) {
+		case 'week':
+			now.setDate(now.getDate() - 7);
+			break;
+		case 'month':
+			now.setMonth(now.getMonth() - 1);
+			break;
+		case 'year':
+			now.setFullYear(now.getFullYear() - 1);
+			break;
+		default:
+			return null;
+	}
+
+	return now.getTime();
+}
+
+function findClosestMessage(messages, targetTime) {
+	let closest = null;
+	let smallestDiff = Infinity;
+
+	for (const msg of messages) {
+		const diff = Math.abs(msg.timestamp - targetTime);
+		if (diff < smallestDiff) {
+			smallestDiff = diff;
+			closest = msg;
+		}
+	}
+
+	return closest;
 }
 
 module.exports = {
@@ -53,4 +94,6 @@ module.exports = {
 	getRandomMinute,
 	theRealest,
 	userMessagesMap,
+	getTargetTimestamp,
+	findClosestMessage,
 };

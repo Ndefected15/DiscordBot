@@ -19,8 +19,37 @@ const slashRegister = async () => {
 					new SlashCommandBuilder()
 						.setName('random_befr')
 						.setDescription('Retrieves a random BeFr you previously sent'),
+					new SlashCommandBuilder()
+						.setName('befr_at')
+						.setDescription('Get a BeFr you sent around a specific time ago')
+						.addStringOption((option) =>
+							option
+								.setName('period')
+								.setDescription('How long ago?')
+								.setRequired(true)
+								.addChoices(
+									{ name: 'A week ago', value: 'week' },
+									{ name: 'A month ago', value: 'month' },
+									{ name: 'A year ago', value: 'year' },
+								),
+						),
+					new SlashCommandBuilder()
+						.setName('befr_scoreboard')
+						.setDescription('View BeFr Realest stats')
+						.addStringOption((option) =>
+							option
+								.setName('period')
+								.setDescription('Time range')
+								.setRequired(true)
+								.addChoices(
+									{ name: 'All Time', value: 'all' },
+									{ name: 'This Week', value: 'week' },
+									{ name: 'This Month', value: 'month' },
+									{ name: 'This Year', value: 'year' },
+								),
+						),
 				],
-			}
+			},
 		);
 	} catch (error) {
 		console.error('Error while registering slash commands:', error);
