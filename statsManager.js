@@ -17,7 +17,9 @@ if (fs.existsSync(statsFile)) {
 	}
 }
 
-// Increment a user’s realest count
+/**
+ * Increment a user’s “realest” count
+ */
 function incrementRealest(userId) {
 	if (!stats[userId]) {
 		stats[userId] = { allTime: 0, week: 0, month: 0, year: 0 };
@@ -30,7 +32,9 @@ function incrementRealest(userId) {
 	saveStats();
 }
 
-// Reset periodic stats
+/**
+ * Reset a specific period: 'week', 'month', 'year'
+ */
 function resetPeriod(period) {
 	for (const userId in stats) {
 		if (stats[userId][period] !== undefined) {
@@ -40,18 +44,60 @@ function resetPeriod(period) {
 	saveStats();
 }
 
-// Get leaderboard for a period
-function getLeaderboard(period) {
-	const leaderboard = [];
-	for (const userId in stats) {
-		leaderboard.push({ userId, count: stats[userId][period] || 0 });
-	}
-	// Sort descending by count
-	leaderboard.sort((a, b) => b.count - a.count);
-	return leaderboard;
+/**
+ * Shortcut functions for cron jobs
+ */
+function resetWeeklyStats() {
+	resetPeriod('week');
 }
 
-// Save stats to file
+function resetMonthlyStats() {
+	resetPeriod('month');
+}
+
+function resetYearlyStats() {
+	resetPeriod('year');
+}
+
+/**
+ * Getter functions for `/befr_scoreboard`
+ */
+function getAllTimeStats() {
+	// return a shallow copy to prevent accidental mutation
+	const leaderboard = [];
+	for (const userId in stats) {
+		leaderboard.push({ userId, count: stats[userId].allTime });
+	}
+	return leaderboard.sort((a, b) => b.count - a.count);
+}
+
+function getWeeklyStats() {
+	const leaderboard = [];
+	for (const userId in stats) {
+		leaderboard.push({ userId, count: stats[userId].week });
+	}
+	return leaderboard.sort((a, b) => b.count - a.count);
+}
+
+function getMonthlyStats() {
+	const leaderboard = [];
+	for (const userId in stats) {
+		leaderboard.push({ userId, count: stats[userId].month });
+	}
+	return leaderboard.sort((a, b) => b.count - a.count);
+}
+
+function getYearlyStats() {
+	const leaderboard = [];
+	for (const userId in stats) {
+		leaderboard.push({ userId, count: stats[userId].year });
+	}
+	return leaderboard.sort((a, b) => b.count - a.count);
+}
+
+/**
+ * Save stats to file
+ */
 function saveStats() {
 	try {
 		fs.writeFileSync(statsFile, JSON.stringify(stats, null, 2), 'utf8');
@@ -60,4 +106,14 @@ function saveStats() {
 	}
 }
 
-module.exports = { stats, incrementRealest, resetPeriod, getLeaderboard };
+module.exports = {
+	stats,
+	incrementRealest,
+	resetWeeklyStats,
+	resetMonthlyStats,
+	resetYearlyStats,
+	getAllTimeStats,
+	getWeeklyStats,
+	getMonthlyStats,
+	getYearlyStats,
+};

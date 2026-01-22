@@ -1,58 +1,70 @@
 const {
-  getAllTimeStats,
-  getWeeklyStats,
-  getMonthlyStats,
-  getYearlyStats,
+	getAllTimeStats,
+	getWeeklyStats,
+	getMonthlyStats,
+	getYearlyStats,
 } = require('./statsManager');
 
 /**
  * Handle /befr_scoreboard command
- * @param {ChatInputCommandInteraction} interaction
  */
 async function handleScoreboard(interaction) {
-  try {
-    // Get the period option (default 'all')
-    const period = interaction.options.getString('period') || 'all';
+	try {
+		// Defer reply so Discord knows we are working on it
+		if (!interaction.deferred && !interaction.replied) {
+			await interaction.deferReply();
+		}
 
-    // Fetch stats based on period
-    let stats;
-    switch (period) {
-      case 'week':
-        stats = getWeeklyStats();
-        break;
-      case 'month':
-        stats = getMonthlyStats();
-        break;
-      case 'year':
-        stats = getYearlyStats();
-        break;
-      case 'all':
-      default:
-        stats = getAllTimeStats();
-        break;
-    }
+		const period = interaction.options.getString('period') || 'all';
+		let leaderboard;
 
-    // Convert stats object { userId: count } to sorted array
-    const sorted = Object.entries(stats)
-      .sort((a, b) => b[1] - a[1])
-      .map(([userId, count], index) => `${index + 1}. <@${userId}> — ${count} times`);
+		switch (period) {
+			case 'week':
+				leaderboard = getWeeklyStats();
+				break;
+			case 'month':
+				leaderboard = getMonthlyStats();
+				break;
+			case 'year':
+				leaderboard = getYearlyStats();
+				break;
+			case 'all':
+			default:
+				leaderboard = getAllTimeStats();
+				break;
+		}
 
-    const messageContent =
-      sorted.length > 0
-        ? `🏆 BeFr Scoreboard (${period}):\n${sorted.join('\n')}`
-        : `No entries yet for ${period}.`;
+		if (!leaderboard || leaderboard.length === 0) {
+			return interaction.editReply('No stats available yet.');
+		}
 
-    // Edit the deferred reply (no defer here!)
-    await interaction.editReply({ content: messageContent });
-  } catch (err) {
-    console.error('Error in handleScoreboard:', err);
-    // If editReply fails, log and try fallback
-    try {
-      await interaction.editReply('⚠️ Something went wrong fetching the scoreboard.');
-    } catch (e) {
-      console.error('Failed to send fallback scoreboard reply:', e);
-    }
-  }
+		// Format the leaderboard nicely
+		const topEntries = leaderboard.slice(0, 20); // show only top 20 to avoid huge messages
+		const formatted = topEntries
+			.map((entry, index) => `${index + 1}. <@${entry.userId}> — ${entry.count}`)
+			.join('\n');
+
+		const titleMap = {
+			all: 'All Time BeFr Scoreboard',
+			week: 'Weekly BeFr Scoreboard',
+			month: 'Monthly BeFr Scoreboard',
+			year: 'Yearly BeFr Scoreboard',
+		};
+
+		await interaction.editReply({
+			content: `**${titleMap[period] || 'BeFr Scoreboard'}**\n${formatted}`,
+		});
+	} catch (err) {
+		console.error('Error in handleScoreboard:', err);
+		try {
+			// Only attempt editReply if not already replied
+			if (!interaction.replied) {
+				await interaction.editReply(
+					'Something went wrong fetching the scoreboard 😔'
+				);
+			}
+		} catch {}
+	}
 }
 
 module.exports = { handleScoreboard };

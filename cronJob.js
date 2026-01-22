@@ -15,6 +15,7 @@ let msgJob;
  * DAILY MESSAGE JOB
  */
 function createDailyMessageJob() {
+	// Random time between 2 PM and 8 PM
 	const interval = `${getRandomMinute(59, 0)} ${getRandomHour(20, 14)} * * *`;
 	console.log('Generated interval for today:', interval);
 
@@ -44,7 +45,7 @@ function createDailyMessageJob() {
 			// Determine "the realest" one hour later
 			setTimeout(
 				() => {
-					theRealest(channel); // increments stats internally
+					theRealest(channel); // internally calls incrementRealest for stats
 				},
 				60 * 60 * 1000,
 			);
@@ -58,14 +59,16 @@ function createDailyMessageJob() {
 }
 
 /**
- * MIDNIGHT RESET
+ * MIDNIGHT RESET JOB
+ * - Refresh daily message job
+ * - Optional: refresh message cache
  */
 const midnightResetJob = new CronJob(
-	'0 0 * * *',
+	'0 0 * * *', // every day at 00:00
 	async function () {
 		console.log('🌙 Midnight reset running...');
 		try {
-			await extractMessages(client); // optional refresh
+			await extractMessages(client);
 			console.log('Message extraction completed');
 		} catch (err) {
 			console.error('Message extraction failed:', err);
@@ -80,7 +83,8 @@ const midnightResetJob = new CronJob(
 );
 
 /**
- * WEEKLY RESET (Sunday)
+ * WEEKLY RESET
+ * - Runs Sunday at 00:00
  */
 const weeklyResetJob = new CronJob(
 	'0 0 * * 0',
@@ -94,7 +98,8 @@ const weeklyResetJob = new CronJob(
 );
 
 /**
- * MONTHLY RESET (1st day)
+ * MONTHLY RESET
+ * - Runs on 1st day of each month at 00:00
  */
 const monthlyResetJob = new CronJob(
 	'0 0 1 * *',
@@ -108,7 +113,8 @@ const monthlyResetJob = new CronJob(
 );
 
 /**
- * YEARLY RESET (Jan 1)
+ * YEARLY RESET
+ * - Runs Jan 1st at 00:00
  */
 const yearlyResetJob = new CronJob(
 	'0 0 1 1 *',
@@ -121,11 +127,11 @@ const yearlyResetJob = new CronJob(
 	'America/New_York',
 );
 
-// Start jobs
+// Start all cron jobs
 midnightResetJob.start();
 weeklyResetJob.start();
 monthlyResetJob.start();
 yearlyResetJob.start();
 
-// Start first daily message job
+// Initialize first daily message job
 createDailyMessageJob();
