@@ -9,23 +9,29 @@ client.once('ready', async () => {
 	console.log('Bot connected to Discord');
 
 	try {
-		// 1️⃣ Register slash commands
+		// Register slash commands
 		await slashRegister();
 
-		// 2️⃣ Extract all messages to populate cache
+		// Extract messages to populate cache
 		await extractMessages(client);
 		console.log('Initial message extraction complete');
 
-		// 3️⃣ Backfill "the realest" stats for historical messages
-		// Only all-time counts; week/month/year will reset via cron
-		await backfillRealestStats(client, '1066395020405518376'); // Pass client + channel ID
+		// -------------------------------
+		// BACKFILL "THE REALEST" STATS
+		// -------------------------------
 
-		// 4️⃣ Reset week/month/year counters so future stats track correctly
+		// 1️⃣ All-time stats
+		await backfillRealestStats(client, '1066395020405518376'); // ✅ pass client
+
+		// 2️⃣ Reset week/month/year
 		resetPeriod('week');
 		resetPeriod('month');
 		resetPeriod('year');
 
-		console.log('Historical "the realest" backfill complete for all periods');
+		console.log(
+			'Historical "the realest" stats backfill complete for all periods',
+		);
+
 		console.log('Startup tasks completed successfully');
 	} catch (err) {
 		console.error('Startup error:', err);
