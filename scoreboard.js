@@ -1,35 +1,58 @@
-const { client } = require('./discordClient');
-const { getLeaderboard } = require('./statsManager');
+const {
+  getAllTimeStats,
+  getWeeklyStats,
+  getMonthlyStats,
+  getYearlyStats,
+} = require('./statsManager');
 
-const PERIODS = ['allTime', 'week', 'month', 'year'];
-
+/**
+ * Handle /befr_scoreboard command
+ * @param {ChatInputCommandInteraction} interaction
+ */
 async function handleScoreboard(interaction) {
-	await interaction.deferReply();
+  try {
+    // Get the period option (default 'all')
+    const period = interaction.options.getString('period') || 'all';
 
-	const periodOption = interaction.options.getString('period') || 'allTime';
-	const period = PERIODS.includes(periodOption) ? periodOption : 'allTime';
+    // Fetch stats based on period
+    let stats;
+    switch (period) {
+      case 'week':
+        stats = getWeeklyStats();
+        break;
+      case 'month':
+        stats = getMonthlyStats();
+        break;
+      case 'year':
+        stats = getYearlyStats();
+        break;
+      case 'all':
+      default:
+        stats = getAllTimeStats();
+        break;
+    }
 
-	const leaderboard = getLeaderboard(period);
+    // Convert stats object { userId: count } to sorted array
+    const sorted = Object.entries(stats)
+      .sort((a, b) => b[1] - a[1])
+      .map(([userId, count], index) => `${index + 1}. <@${userId}> — ${count} times`);
 
-	if (leaderboard.length === 0) {
-		return interaction.editReply('No data available for the leaderboard.');
-	}
+    const messageContent =
+      sorted.length > 0
+        ? `🏆 BeFr Scoreboard (${period}):\n${sorted.join('\n')}`
+        : `No entries yet for ${period}.`;
 
-	// Format the leaderboard safely, limit to 20 entries per message
-	const lines = leaderboard.map(
-		(entry, i) => `${i + 1}. <@${entry.userId}> — ${entry.count} time(s)`,
-	);
-
-	const chunkSize = 20; // prevent large message
-	for (let i = 0; i < lines.length; i += chunkSize) {
-		const chunk = lines.slice(i, i + chunkSize).join('\n');
-		await interaction.followUp({ content: chunk });
-	}
-
-	// Edit the initial deferred reply to a simple confirmation
-	await interaction.editReply(
-		`Leaderboard for period: **${period}** (${leaderboard.length} users)`,
-	);
+    // Edit the deferred reply (no defer here!)
+    await interaction.editReply({ content: messageContent });
+  } catch (err) {
+    console.error('Error in handleScoreboard:', err);
+    // If editReply fails, log and try fallback
+    try {
+      await interaction.editReply('⚠️ Something went wrong fetching the scoreboard.');
+    } catch (e) {
+      console.error('Failed to send fallback scoreboard reply:', e);
+    }
+  }
 }
 
 module.exports = { handleScoreboard };

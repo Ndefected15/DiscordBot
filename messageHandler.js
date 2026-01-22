@@ -116,7 +116,14 @@ client.on('interactionCreate', async (interaction) => {
 	 * /befr_scoreboard
 	 */
 	if (interaction.commandName === 'befr_scoreboard') {
-		return handleScoreboard(interaction);
+		try {
+			return handleScoreboard(interaction); // ✅ no defer needed inside handleScoreboard
+		} catch (err) {
+			console.error('Scoreboard error:', err);
+			return interaction.editReply(
+				'Something went wrong fetching the scoreboard 😔',
+			);
+		}
 	}
 });
 
