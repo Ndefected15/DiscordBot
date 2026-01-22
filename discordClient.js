@@ -1,15 +1,37 @@
-const { Client, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const {
+	Client,
+	REST,
+	Routes,
+	GatewayIntentBits,
+	SlashCommandBuilder,
+} = require('discord.js');
+
+// Load bot token from environment variable
+const botToken = process.env.DJS_TOKEN;
+
+if (!botToken) {
+	throw new Error(
+		'❌ Discord bot token not found. Please set the DJS_TOKEN environment variable in Render.',
+	);
+}
 
 const botConfig = {
 	botID: '1066342002121248778',
 	serverID: '581783173923602433',
-	botToken: process.env.DJS_TOKEN,
-	intents: [412317132864],
+	botToken,
+	intents: [
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.MessageContent,
+	],
 };
 
 const client = new Client({ intents: botConfig.intents });
-const rest = new REST().setToken(botConfig.botToken);
 
+// REST client for slash commands
+const rest = new REST({ version: '10' }).setToken(botConfig.botToken);
+
+// Slash command registration
 const slashRegister = async () => {
 	try {
 		await rest.put(
@@ -51,9 +73,16 @@ const slashRegister = async () => {
 				],
 			},
 		);
+		console.log('✅ Slash commands registered successfully');
 	} catch (error) {
-		console.error('Error while registering slash commands:', error);
+		console.error('❌ Error while registering slash commands:', error);
 	}
 };
+
+// Log all client events for debugging
+client.on('ready', () => console.log(`✅ Logged in as ${client.user.tag}`));
+client.on('error', console.error);
+client.on('warn', console.warn);
+client.on('debug', console.log);
 
 module.exports = { client, slashRegister, botConfig };
