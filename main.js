@@ -19,12 +19,13 @@ client.once('ready', async () => {
 		// -------------------------------
 		// BACKFILL "THE REALEST" STATS
 		// -------------------------------
+		const channelId = '1066395020405518376';
 
-		// 1️⃣ All-time stats
-		await backfillRealestStats('1066395020405518376'); // Channel ID
+		// Backfill all historical "the realest" messages
+		// Pass the client so it can fetch messages properly
+		await backfillRealestStats(client, channelId);
 
-		// 2️⃣ Reset and track week/month/year separately
-		// This ensures week/month/year stats start fresh but historical messages count for allTime
+		// Reset week/month/year stats to start fresh
 		resetPeriod('week');
 		resetPeriod('month');
 		resetPeriod('year');
