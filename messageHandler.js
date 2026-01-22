@@ -139,10 +139,22 @@ async function sendMessageAttachment(interaction, messageMeta, periodLabel) {
 			? `Here's a BeFr from about ${periodLabel} ago`
 			: `Here's a random BeFr`;
 
-		await interaction.editReply({
-			content: `${prefix} <@${messageMeta.authorID}> (sent at ${timestamp}):`,
-			files: [attachment],
-		});
+		// 🧠 Attempt upload first
+		try {
+			await interaction.editReply({
+				content: `${prefix} <@${messageMeta.authorID}> (sent at ${timestamp}):`,
+				files: [attachment],
+			});
+		} catch (err) {
+			// 🚨 File too large → fallback to link
+			if (err.code === 40005) {
+				await interaction.editReply({
+					content: `${prefix} <@${messageMeta.authorID}> (sent at ${timestamp}):\n${attachment.url}`,
+				});
+			} else {
+				throw err;
+			}
+		}
 	} catch (err) {
 		console.error('Failed to fetch attachment:', err);
 		await interaction.editReply('Something went wrong fetching that BeFr 😔');
