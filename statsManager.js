@@ -1,73 +1,63 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_PATH = path.join(__dirname, 'befrStats.json');
+const statsFile = path.join(__dirname, 'stats.json');
 
-const defaultStats = {
-	allTime: {},
-	week: {},
-	month: {},
-	year: {},
-};
+// In-memory stats
+// Structure: { userId: { allTime: 0, week: 0, month: 0, year: 0 } }
+let stats = {};
 
-let stats = loadStats();
-
-/* ---------------- LOAD / SAVE ---------------- */
-
-function loadStats() {
-	if (!fs.existsSync(DATA_PATH)) {
-		fs.writeFileSync(DATA_PATH, JSON.stringify(defaultStats, null, 2));
-		return structuredClone(defaultStats);
-	}
-
+// Load stats from file if exists
+if (fs.existsSync(statsFile)) {
 	try {
-		return JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
+		stats = JSON.parse(fs.readFileSync(statsFile, 'utf8'));
 	} catch (err) {
-		console.error('Failed to load stats file, resetting:', err);
-		return structuredClone(defaultStats);
+		console.error('Failed to load stats file:', err);
+		stats = {};
 	}
 }
 
-function saveStats() {
-	fs.writeFileSync(DATA_PATH, JSON.stringify(stats, null, 2));
-}
-
-/* ---------------- MUTATION ---------------- */
-
+// Increment a user’s realest count
 function incrementRealest(userId) {
-	for (const bucket of ['allTime', 'week', 'month', 'year']) {
-		stats[bucket][userId] = (stats[bucket][userId] || 0) + 1;
+	if (!stats[userId]) {
+		stats[userId] = { allTime: 0, week: 0, month: 0, year: 0 };
+	}
+	stats[userId].allTime++;
+	stats[userId].week++;
+	stats[userId].month++;
+	stats[userId].year++;
+
+	saveStats();
+}
+
+// Reset periodic stats
+function resetPeriod(period) {
+	for (const userId in stats) {
+		if (stats[userId][period] !== undefined) {
+			stats[userId][period] = 0;
+		}
 	}
 	saveStats();
 }
 
-/* ---------------- RESET HELPERS ---------------- */
-
-function resetWeek() {
-	stats.week = {};
-	saveStats();
+// Get leaderboard for a period
+function getLeaderboard(period) {
+	const leaderboard = [];
+	for (const userId in stats) {
+		leaderboard.push({ userId, count: stats[userId][period] || 0 });
+	}
+	// Sort descending by count
+	leaderboard.sort((a, b) => b.count - a.count);
+	return leaderboard;
 }
 
-function resetMonth() {
-	stats.month = {};
-	saveStats();
+// Save stats to file
+function saveStats() {
+	try {
+		fs.writeFileSync(statsFile, JSON.stringify(stats, null, 2), 'utf8');
+	} catch (err) {
+		console.error('Failed to save stats:', err);
+	}
 }
 
-function resetYear() {
-	stats.year = {};
-	saveStats();
-}
-
-/* ---------------- READ HELPERS ---------------- */
-
-function getStats(period = 'allTime') {
-	return stats[period] || {};
-}
-
-module.exports = {
-	incrementRealest,
-	getStats,
-	resetWeek,
-	resetMonth,
-	resetYear,
-};
+module.exports = { stats, incrementRealest, resetPeriod, getLeaderboard };

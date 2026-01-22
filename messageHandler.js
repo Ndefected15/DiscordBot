@@ -5,6 +5,9 @@ const {
 	findClosestMessage,
 } = require('./utils');
 
+const { handleScoreboard } = require('./scoreboard'); // leaderboard handler
+const { incrementRealest } = require('./statsManager'); // track "realest"
+
 const CHANNEL_ID = '1066395020405518376';
 
 /**
@@ -82,12 +85,12 @@ client.on('interactionCreate', async (interaction) => {
 	}
 
 	/**
-	 * /befr_at  (STEP 4 IMPLEMENTED HERE)
+	 * /befr_at
 	 */
 	if (interaction.commandName === 'befr_at') {
 		const period = interaction.options.getString('period');
-
 		const targetTime = getTargetTimestamp(period);
+
 		if (!targetTime) {
 			return interaction.editReply('Invalid time period.');
 		}
@@ -100,24 +103,25 @@ client.on('interactionCreate', async (interaction) => {
 			return interaction.editReply('No BeFr found for you.');
 		}
 
-		// STEP 3 result
 		const closest = findClosestMessage(userMessages, targetTime);
 
 		if (!closest) {
 			return interaction.editReply('No BeFr found near that time.');
 		}
 
-		// STEP 4: re-fetch and send attachment
 		return sendMessageAttachment(interaction, closest, period);
 	}
 
+	/**
+	 * /befr_scoreboard
+	 */
 	if (interaction.commandName === 'befr_scoreboard') {
 		return handleScoreboard(interaction);
 	}
 });
 
 /**
- * STEP 4 helper — fetch fresh attachment + reply
+ * Helper: fetch fresh attachment + reply
  */
 async function sendMessageAttachment(interaction, messageMeta, periodLabel) {
 	try {
@@ -139,14 +143,14 @@ async function sendMessageAttachment(interaction, messageMeta, periodLabel) {
 			? `Here's a BeFr from about ${periodLabel} ago`
 			: `Here's a random BeFr`;
 
-		// 🧠 Attempt upload first
+		// Attempt upload
 		try {
 			await interaction.editReply({
 				content: `${prefix} <@${messageMeta.authorID}> (sent at ${timestamp}):`,
 				files: [attachment],
 			});
 		} catch (err) {
-			// 🚨 File too large → fallback to link
+			// File too large → fallback to URL
 			if (err.code === 40005) {
 				await interaction.editReply({
 					content: `${prefix} <@${messageMeta.authorID}> (sent at ${timestamp}):\n${attachment.url}`,
@@ -161,4 +165,4 @@ async function sendMessageAttachment(interaction, messageMeta, periodLabel) {
 	}
 }
 
-module.exports = { extractMessages };
+module.exports = { extractMessages, sendMessageAttachment, incrementRealest };

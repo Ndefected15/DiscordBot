@@ -1,45 +1,35 @@
-const { getStats } = require('./statsManager');
+const { client } = require('./discordClient');
+const { getLeaderboard } = require('./statsManager');
 
-/**
- * /befr_scoreboard handler
- */
+const PERIODS = ['allTime', 'week', 'month', 'year'];
+
 async function handleScoreboard(interaction) {
-	const period = interaction.options.getString('period') || 'allTime';
+	await interaction.deferReply();
 
-	const stats = getStats(period);
-	const entries = Object.entries(stats);
+	const periodOption = interaction.options.getString('period') || 'allTime';
+	const period = PERIODS.includes(periodOption) ? periodOption : 'allTime';
 
-	if (entries.length === 0) {
-		return interaction.editReply(
-			`No stats available for **${formatPeriod(period)}** yet.`,
-		);
+	const leaderboard = getLeaderboard(period);
+
+	if (leaderboard.length === 0) {
+		return interaction.editReply('No data available for the leaderboard.');
 	}
 
-	// Sort descending
-	entries.sort((a, b) => b[1] - a[1]);
-
-	const lines = entries.map(
-		([userId, count], index) => `**${index + 1}.** <@${userId}> — **${count}**`,
+	// Format the leaderboard safely, limit to 20 entries per message
+	const lines = leaderboard.map(
+		(entry, i) => `${i + 1}. <@${entry.userId}> — ${entry.count} time(s)`,
 	);
 
-	await interaction.editReply({
-		content: `🏆 **BeFr Scoreboard — ${formatPeriod(period)}** 🏆\n\n${lines.join(
-			'\n',
-		)}`,
-	});
-}
-
-function formatPeriod(period) {
-	switch (period) {
-		case 'week':
-			return 'This Week';
-		case 'month':
-			return 'This Month';
-		case 'year':
-			return 'This Year';
-		default:
-			return 'All Time';
+	const chunkSize = 20; // prevent large message
+	for (let i = 0; i < lines.length; i += chunkSize) {
+		const chunk = lines.slice(i, i + chunkSize).join('\n');
+		await interaction.followUp({ content: chunk });
 	}
+
+	// Edit the initial deferred reply to a simple confirmation
+	await interaction.editReply(
+		`Leaderboard for period: **${period}** (${leaderboard.length} users)`,
+	);
 }
 
 module.exports = { handleScoreboard };

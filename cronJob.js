@@ -7,8 +7,6 @@ const {
 	resetMonthlyStats,
 	resetYearlyStats,
 } = require('./statsManager');
-const { handleScoreboard } = require('./scoreboard');
-
 
 const channelID = '1066395020405518376';
 let msgJob;
@@ -46,7 +44,7 @@ function createDailyMessageJob() {
 			// Determine "the realest" one hour later
 			setTimeout(
 				() => {
-					theRealest(channel); // this should increment stats internally
+					theRealest(channel); // increments stats internally
 				},
 				60 * 60 * 1000,
 			);
@@ -60,16 +58,14 @@ function createDailyMessageJob() {
 }
 
 /**
- * MIDNIGHT RESET (daily job + message extraction)
+ * MIDNIGHT RESET
  */
 const midnightResetJob = new CronJob(
 	'0 0 * * *',
 	async function () {
 		console.log('🌙 Midnight reset running...');
-
-		// Optional safety refresh (OK but not strictly required anymore)
 		try {
-			await extractMessages(client);
+			await extractMessages(client); // optional refresh
 			console.log('Message extraction completed');
 		} catch (err) {
 			console.error('Message extraction failed:', err);
@@ -84,7 +80,7 @@ const midnightResetJob = new CronJob(
 );
 
 /**
- * WEEKLY RESET (Sunday 00:00)
+ * WEEKLY RESET (Sunday)
  */
 const weeklyResetJob = new CronJob(
 	'0 0 * * 0',
@@ -98,7 +94,7 @@ const weeklyResetJob = new CronJob(
 );
 
 /**
- * MONTHLY RESET (1st day of month)
+ * MONTHLY RESET (1st day)
  */
 const monthlyResetJob = new CronJob(
 	'0 0 1 * *',
@@ -112,7 +108,7 @@ const monthlyResetJob = new CronJob(
 );
 
 /**
- * YEARLY RESET (Jan 1st)
+ * YEARLY RESET (Jan 1)
  */
 const yearlyResetJob = new CronJob(
 	'0 0 1 1 *',
